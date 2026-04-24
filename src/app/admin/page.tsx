@@ -9,13 +9,13 @@ type Tab = 'buses' | 'drivers' | 'students';
 
 export default function AdminPage() {
   const router = useRouter();
-  const [tab, setTab]         = useState<Tab>('buses');
-  const [buses, setBuses]     = useState<any[]>([]);
-  const [drivers, setDrivers] = useState<any[]>([]);
+  const [tab, setTab]           = useState<Tab>('buses');
+  const [buses, setBuses]       = useState<any[]>([]);
+  const [drivers, setDrivers]   = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
 
-  const token = () => localStorage.getItem('token');
+  const token   = () => localStorage.getItem('token');
   const headers = () => ({ Authorization: `Bearer ${token()}` });
 
   const fetchAll = useCallback(async () => {
@@ -40,9 +40,9 @@ export default function AdminPage() {
   }, [fetchAll]);
 
   const tabs: { key: Tab; label: string; emoji: string }[] = [
-    { key: 'buses',   label: '校車',  emoji: '🚌' },
-    { key: 'drivers', label: '司機',  emoji: '👨‍✈️' },
-    { key: 'students',label: '學生',  emoji: '👦' },
+    { key: 'buses',    label: '校車', emoji: '🚌' },
+    { key: 'drivers',  label: '司機', emoji: '👨‍✈️' },
+    { key: 'students', label: '學生', emoji: '👦' },
   ];
 
   return (
@@ -61,9 +61,36 @@ export default function AdminPage() {
 
       {/* 統計卡 */}
       <div className="grid grid-cols-3 gap-3 px-4 py-4">
-        <StatCard emoji="🚌" label="校車" value={buses.length} color="blue" />
+        <StatCard emoji="🚌" label="校車" value={buses.length}   color="blue" />
         <StatCard emoji="👨‍✈️" label="司機" value={drivers.length} color="emerald" />
         <StatCard emoji="👦" label="學生" value={students.length} color="amber" />
+      </div>
+
+      {/* 快速入口 */}
+      <div className="px-4 mb-4">
+        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">
+          學生建檔
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => router.push('/admin/scan')}
+            className="bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all
+                       rounded-2xl p-4 text-left"
+          >
+            <div className="text-2xl mb-2">📷</div>
+            <div className="text-white font-bold text-sm">掃描學生證</div>
+            <div className="text-blue-200 text-xs mt-0.5">逐一掃描快速建檔</div>
+          </button>
+          <button
+            onClick={() => router.push('/admin/import')}
+            className="bg-emerald-700 hover:bg-emerald-600 active:scale-95 transition-all
+                       rounded-2xl p-4 text-left"
+          >
+            <div className="text-2xl mb-2">📥</div>
+            <div className="text-white font-bold text-sm">批次匯入</div>
+            <div className="text-emerald-200 text-xs mt-0.5">Excel / CSV 批量建檔</div>
+          </button>
+        </div>
       </div>
 
       {/* Tab */}
@@ -86,8 +113,8 @@ export default function AdminPage() {
           <div className="text-gray-500 text-center py-12">載入中...</div>
         ) : (
           <>
-            {tab === 'buses' && <BusList buses={buses} />}
-            {tab === 'drivers' && <DriverList drivers={drivers} />}
+            {tab === 'buses'    && <BusList    buses={buses} />}
+            {tab === 'drivers'  && <DriverList drivers={drivers} />}
             {tab === 'students' && <StudentList students={students} />}
           </>
         )}
@@ -114,7 +141,6 @@ function StatCard({ emoji, label, value, color }: any) {
 
 // ── 校車列表 ─────────────────────────────────────────
 function BusList({ buses }: { buses: any[] }) {
-  // 按路線分組
   const grouped = buses.reduce((acc: any, bus: any) => {
     if (!acc[bus.route_name]) acc[bus.route_name] = [];
     acc[bus.route_name].push(bus);
@@ -194,7 +220,6 @@ function DriverList({ drivers }: { drivers: any[] }) {
 
 // ── 學生列表 ─────────────────────────────────────────
 function StudentList({ students }: { students: any[] }) {
-  // 按路線分組
   const grouped = students.reduce((acc: any, s: any) => {
     const key = s.route_name || '未指派';
     if (!acc[key]) acc[key] = [];
@@ -207,10 +232,10 @@ function StudentList({ students }: { students: any[] }) {
       {Object.entries(grouped).map(([route, list]: any) => (
         <div key={route}>
           <div className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-2 px-1">
-            {route} · {list.length} 人
+            {route} · {(list as any[]).length} 人
           </div>
           <div className="space-y-3">
-            {list.map((s: any) => (
+            {(list as any[]).map((s: any) => (
               <div key={s.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-amber-600/20 flex items-center justify-center text-2xl">
                   👦
