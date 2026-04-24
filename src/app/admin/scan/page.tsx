@@ -136,9 +136,9 @@ export default function ScanPage() {
               <div className="w-48 h-48 border-2 border-blue-400 rounded-2xl opacity-60" />
             </div>
             <button onClick={() => { stopCamera(); setState('idle'); }}
-              className="mt-3 w-full py-3 rounded-2xl bg-gray-800 text-gray-300 text-sm">
-              取消掃描
-            </button>
+  className="mt-3 w-full py-3 rounded-2xl bg-gray-800 text-gray-300 text-sm sticky bottom-4">
+  取消掃描
+</button>
           </div>
         ) : state === 'idle' ? (
           <div className="space-y-3">
