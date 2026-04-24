@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: '校車定位系統',
-  description: '瘋扣弱電資訊工程 - 師傅定位 / 出勤 / 派工',
+  description: '瘋扣軟體開發 - 校車定位系統 - 安全接送，掌握位置',
 };
 
 export const viewport: Viewport = {
