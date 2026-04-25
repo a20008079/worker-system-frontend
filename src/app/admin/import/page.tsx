@@ -35,7 +35,7 @@ export default function ImportPage() {
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       a.href = url;
-      a.download = `校車學生資料庫_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.csv`;
+      a.download = `校車學生資料庫_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch { setMsg('下載失敗'); }
@@ -114,7 +114,7 @@ export default function ImportPage() {
           <div className="text-gray-400 text-sm mb-3">下載現有學生資料，編輯後重新上傳可新增或更新</div>
           <button onClick={downloadDatabase} disabled={downloading}
             className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-medium text-sm">
-            ⬇️ 下載資料庫 (.csv)
+            ⬇️ 下載資料庫 (.xlsx)
           </button>
         </div>
 
