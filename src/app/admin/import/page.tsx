@@ -67,8 +67,13 @@ export default function ImportPage() {
       const ws   = wb.Sheets[wb.SheetNames[0]];
       const data: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 });
       if (data.length < 2) { setMsg('檔案沒有資料'); return; }
-      const headers = data[0].map((h: any) => String(h).trim());
-      const parsed  = data.slice(1)
+      // 自動找欄位名稱列（找包含 route_name 或 bus_name 的那列）
+      const headerRowIdx = data.findIndex((row: any[]) =>
+        row.some((cell: any) => String(cell || '').includes('bus_name') || String(cell || '').includes('route_name'))
+      );
+      if (headerRowIdx < 0) { setMsg('找不到欄位名稱列，請確認第2列有 bus_name 等欄位名'); return; }
+      const headers = data[headerRowIdx].map((h: any) => String(h).trim());
+      const parsed  = data.slice(headerRowIdx + 1)
         .filter((r: any[]) => r.some(c => c !== undefined && c !== ''))
         .map((r: any[]) => {
           const obj: any = {};
