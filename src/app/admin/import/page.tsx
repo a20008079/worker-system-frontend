@@ -22,13 +22,24 @@ export default function ImportPage() {
 
   const token = () => localStorage.getItem('token');
 
-  const downloadTemplate = () => {
-    const csv = [HEADERS, ...EXAMPLE].map(r => r.join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = '校車學生名單範本.csv'; a.click();
-    URL.revokeObjectURL(url);
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadDatabase = async () => {
+    setDownloading(true);
+    try {
+      const r = await fetch(`${API}/api/admin/export`, {
+        headers: { Authorization: `Bearer ${token()}` }
+      });
+      if (!r.ok) { setMsg('下載失敗'); return; }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `校車學生資料庫_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { setMsg('下載失敗'); }
+    finally { setDownloading(false); }
   };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,11 +110,11 @@ export default function ImportPage() {
       <div className="flex-1 px-4 py-6 space-y-4">
         {/* 範本下載 */}
         <div className="bg-blue-950/30 border border-blue-800/40 rounded-2xl p-4">
-          <div className="text-blue-300 font-semibold mb-1">📋 第一步：下載範本</div>
-          <div className="text-gray-400 text-sm mb-3">填好後上傳，系統自動建立所有帳號</div>
-          <button onClick={downloadTemplate}
+          <div className="text-blue-300 font-semibold mb-1">📋 第一步：下載資料庫</div>
+          <div className="text-gray-400 text-sm mb-3">下載現有學生資料，編輯後重新上傳可新增或更新</div>
+          <button onClick={downloadDatabase} disabled={downloading}
             className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-medium text-sm">
-            ⬇️ 下載範本 (.csv)
+            ⬇️ 下載資料庫 (.csv)
           </button>
         </div>
 
