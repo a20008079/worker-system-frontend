@@ -93,6 +93,25 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* 帳號管理入口 */}
+      <div className="px-4 mb-4">
+        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">
+          帳號管理
+        </div>
+        <button
+          onClick={() => router.push('/admin/accounts')}
+          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all
+                     rounded-2xl p-4 flex items-center gap-4 border border-gray-700"
+        >
+          <div className="text-3xl">👤</div>
+          <div className="text-left">
+            <div className="text-white font-bold text-sm">帳號管理</div>
+            <div className="text-gray-400 text-xs mt-0.5">新增 / 修改 / 刪除 家長、司機、管理員帳號密碼</div>
+          </div>
+          <div className="ml-auto text-gray-500 text-lg">›</div>
+        </button>
+      </div>
+
       {/* Tab */}
       <div className="flex gap-2 px-4 mb-4">
         {tabs.map(t => (
