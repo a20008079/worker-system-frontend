@@ -15,8 +15,7 @@ export default function DriverPage() {
   const tickRef = useRef<NodeJS.Timeout | null>(null);
   const geoRef  = useRef<NodeJS.Timeout | null>(null);
 
-  const token = () => localStorage.getItem('token');
-
+  const token   = () => localStorage.getItem('token');
   const headers = () => ({
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token()}`,
@@ -71,7 +70,7 @@ export default function DriverPage() {
     };
 
     sendLocation();
-    geoRef.current = setInterval(sendLocation, 3 * 60 * 1000); // 每3分鐘
+    geoRef.current = setInterval(sendLocation, 3 * 60 * 1000);
     return () => { if (geoRef.current) clearInterval(geoRef.current); };
   }, [session]);
 
@@ -100,7 +99,7 @@ export default function DriverPage() {
   const isOnline = session && !session.end_time;
 
   return (
-    <div className="min-h-dvh bg-gray-950 flex flex-col max-w-sm mx-auto px-4 py-8 gap-6">
+    <div className="min-h-dvh bg-gray-950 flex flex-col max-w-sm mx-auto px-4 py-8 gap-5">
       {/* Header */}
       <div className="text-center">
         <div className="text-3xl mb-2">🚌</div>
@@ -123,28 +122,37 @@ export default function DriverPage() {
         )}
       </div>
 
-      {/* 按鈕 */}
-      <div className="space-y-4">
-        {!isOnline ? (
-          <button
-            onClick={handleOnline}
-            disabled={loading}
-            className="w-full py-6 rounded-3xl bg-emerald-500 hover:bg-emerald-400 active:scale-95
-                       text-white font-bold text-xl transition-all disabled:opacity-50"
-          >
-            🟢 上線出發
-          </button>
-        ) : (
-          <button
-            onClick={handleOffline}
-            disabled={loading}
-            className="w-full py-6 rounded-3xl bg-red-500 hover:bg-red-400 active:scale-95
-                       text-white font-bold text-xl transition-all disabled:opacity-50"
-          >
-            🔴 下線收班
-          </button>
-        )}
-      </div>
+      {/* 上下線按鈕 */}
+      {!isOnline ? (
+        <button
+          onClick={handleOnline}
+          disabled={loading}
+          className="w-full py-6 rounded-3xl bg-emerald-500 hover:bg-emerald-400 active:scale-95
+                     text-white font-bold text-xl transition-all disabled:opacity-50"
+        >
+          🟢 上線出發
+        </button>
+      ) : (
+        <button
+          onClick={handleOffline}
+          disabled={loading}
+          className="w-full py-6 rounded-3xl bg-red-500 hover:bg-red-400 active:scale-95
+                     text-white font-bold text-xl transition-all disabled:opacity-50"
+        >
+          🔴 下線收班
+        </button>
+      )}
+
+      {/* 掃描學生上車按鈕（上線中才顯示） */}
+      {isOnline && (
+        <button
+          onClick={() => router.push('/driver/scan')}
+          className="w-full py-5 rounded-3xl bg-blue-600 hover:bg-blue-500 active:scale-95
+                     text-white font-bold text-lg transition-all"
+        >
+          📷 掃描學生上車
+        </button>
+      )}
 
       {/* 說明 */}
       {!isOnline && (

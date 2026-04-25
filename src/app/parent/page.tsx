@@ -6,17 +6,16 @@ import dynamic from 'next/dynamic';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-// 動態載入地圖（避免 SSR 問題）
 const BusMap = dynamic(() => import('@/components/BusMap'), { ssr: false });
 
 export default function ParentPage() {
   const router = useRouter();
-  const [data, setData]       = useState<any[]>([]);
+  const [data, setData]         = useState<any[]>([]);
   const [selected, setSelected] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const token = () => localStorage.getItem('token');
+  const token   = () => localStorage.getItem('token');
   const headers = () => ({ Authorization: `Bearer ${token()}` });
 
   const fetchData = useCallback(async () => {
@@ -30,7 +29,7 @@ export default function ParentPage() {
 
   useEffect(() => {
     fetchData();
-    timerRef.current = setInterval(fetchData, 60000); // 每分鐘更新
+    timerRef.current = setInterval(fetchData, 60000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [fetchData]);
 
@@ -39,6 +38,16 @@ export default function ParentPage() {
   if (loading) return (
     <div className="min-h-dvh bg-gray-950 flex items-center justify-center">
       <div className="text-gray-400">載入中...</div>
+    </div>
+  );
+
+  if (!data.length) return (
+    <div className="min-h-dvh bg-gray-950 flex items-center justify-center p-6">
+      <div className="text-center">
+        <div className="text-4xl mb-3">👦</div>
+        <div className="text-gray-300">尚未綁定學生資料</div>
+        <div className="text-gray-600 text-sm mt-1">請聯絡學校管理員</div>
+      </div>
     </div>
   );
 
@@ -53,12 +62,10 @@ export default function ParentPage() {
         <button
           onClick={() => { localStorage.clear(); router.push('/login'); }}
           className="text-gray-600 text-sm"
-        >
-          登出
-        </button>
+        >登出</button>
       </div>
 
-      {/* 學生切換（多個小孩時） */}
+      {/* 學生切換 */}
       {data.length > 1 && (
         <div className="px-4 flex gap-2 pb-2 overflow-x-auto">
           {data.map((d, i) => (
@@ -66,9 +73,7 @@ export default function ParentPage() {
               key={i}
               onClick={() => setSelected(i)}
               className={`px-4 py-2 rounded-full text-sm whitespace-nowrap transition-all
-                ${selected === i
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400'}`}
+                ${selected === i ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
             >
               {d.student.name}
             </button>
@@ -77,7 +82,7 @@ export default function ParentPage() {
       )}
 
       {/* 地圖 */}
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-h-[55vw]">
         {current?.location ? (
           <BusMap
             latitude={current.location.latitude}
@@ -86,7 +91,7 @@ export default function ParentPage() {
             isOnline={current.is_online}
           />
         ) : (
-          <div className="w-full h-full min-h-[60vw] bg-gray-900 flex items-center justify-center">
+          <div className="w-full h-full min-h-[55vw] bg-gray-900 flex items-center justify-center">
             <div className="text-center">
               <div className="text-4xl mb-3">📍</div>
               <div className="text-gray-400">校車尚未出發</div>
@@ -113,16 +118,30 @@ export default function ParentPage() {
             </div>
           </div>
 
-          {/* 學生資訊 */}
+          {/* 學生資訊 + 上車狀態 */}
           <div className="bg-gray-800 rounded-2xl p-4 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-blue-600/20 flex items-center justify-center text-2xl">
               👦
             </div>
-            <div>
+            <div className="flex-1">
               <div className="text-white font-semibold">{current.student.name}</div>
               <div className="text-gray-500 text-sm">{current.student.school_class}</div>
+              {/* 上車狀態 */}
+              {current.boarded_at ? (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="text-emerald-400 text-xs font-medium">
+                    已上車 {new Date(current.boarded_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ) : current.is_online ? (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-amber-400 text-xs">尚未上車</span>
+                </div>
+              ) : null}
             </div>
-            <div className="ml-auto text-right">
+            <div className="text-right">
               {current.location ? (
                 <div className="text-gray-500 text-xs">
                   更新於<br/>
