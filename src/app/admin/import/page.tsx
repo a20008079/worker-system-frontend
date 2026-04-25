@@ -69,11 +69,21 @@ export default function ImportPage() {
       if (data.length < 2) { setMsg('檔案沒有資料'); return; }
       // 自動找欄位名稱列（找包含 route_name 或 bus_name 的那列）
       const headerRowIdx = data.findIndex((row: any[]) =>
-        row.some((cell: any) => String(cell || '').includes('bus_name') || String(cell || '').includes('route_name'))
+        row.some((cell: any) => String(cell || '').trim() === 'bus_name' || String(cell || '').trim() === 'route_name')
       );
-      if (headerRowIdx < 0) { setMsg('找不到欄位名稱列，請確認第2列有 bus_name 等欄位名'); return; }
+      if (headerRowIdx < 0) { setMsg('找不到欄位名稱列，請確認檔案有 bus_name 等欄位名'); return; }
       const headers = data[headerRowIdx].map((h: any) => String(h).trim());
-      const parsed  = data.slice(headerRowIdx + 1)
+      // 跳過欄位名稱列之後的中文說明列（如果下一列不含實際資料）
+      let dataStartIdx = headerRowIdx + 1;
+      // 如果下一列的第一欄包含中文且不是實際資料，就再跳一列
+      if (data[dataStartIdx] && String(data[dataStartIdx][0] || '').match(/[一-鿿]/)) {
+        // 檢查是否是說明列（包含「必填」「選填」等字樣）
+        const firstCell = String(data[dataStartIdx][0] || '');
+        if (firstCell.includes('必填') || firstCell.includes('選填') || firstCell.includes('如：')) {
+          dataStartIdx++;
+        }
+      }
+      const parsed  = data.slice(dataStartIdx)
         .filter((r: any[]) => r.some(c => c !== undefined && c !== ''))
         .map((r: any[]) => {
           const obj: any = {};
