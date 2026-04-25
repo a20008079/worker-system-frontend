@@ -70,7 +70,7 @@ export default function DriverPage() {
     };
 
     sendLocation();
-    geoRef.current = setInterval(sendLocation, 3 * 60 * 1000);
+    geoRef.current = setInterval(sendLocation, 60 * 1000);
     return () => { if (geoRef.current) clearInterval(geoRef.current); };
   }, [session]);
 
