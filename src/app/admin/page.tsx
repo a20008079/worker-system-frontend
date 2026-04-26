@@ -122,6 +122,30 @@ export default function AdminPage() {
             <div className="text-gray-400 text-xs mt-0.5">新增 · 刪除校車路線</div>
           </button>
         </div>
+        {/* 匯出按鈕 */}
+        <a href={`${API}/api/admin/export`}
+          onClick={e => {
+            e.preventDefault();
+            const tok = localStorage.getItem('token');
+            fetch(`${API}/api/admin/export`, { headers: { Authorization: `Bearer ${tok}` } })
+              .then(r => r.blob())
+              .then(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `校車學生資料庫_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.xlsx`;
+                a.click();
+                URL.revokeObjectURL(url);
+              });
+          }}
+          className="w-full mt-3 bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-3 flex items-center gap-3 border border-gray-700 no-underline block">
+          <div className="text-xl">📊</div>
+          <div className="text-left">
+            <div className="text-white font-bold text-sm">匯出學生名單</div>
+            <div className="text-gray-400 text-xs">下載 Excel 格式</div>
+          </div>
+          <div className="ml-auto text-gray-500 text-sm">↓</div>
+        </a>
       </div>
 
       {/* 帳號管理 */}
@@ -160,7 +184,7 @@ export default function AdminPage() {
           <>
             {tab === 'buses' && <BusList buses={buses} />}
             {tab === 'drivers' && <DriverList drivers={drivers} />}
-            {tab === 'students' && <StudentList students={students} />}
+            {tab === 'students' && <StudentList students={students} buses={buses} onRefresh={fetchAll} />}
           </>
         )}
       </div>
@@ -449,38 +473,148 @@ function DriverList({ drivers }: { drivers: any[] }) {
   );
 }
 
-function StudentList({ students }: { students: any[] }) {
-  const grouped = students.reduce((acc: any, s: any) => {
+function StudentList({ students, buses, onRefresh }: { students: any[]; buses: any[]; onRefresh: () => void }) {
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [search, setSearch] = useState('');
+
+  const filtered = search.trim()
+    ? students.filter(s => s.name.includes(search) || s.school_class?.includes(search) || s.bus_name?.includes(search))
+    : students;
+
+  const grouped = filtered.reduce((acc: any, s: any) => {
     const key = s.route_name || '未指派';
     if (!acc[key]) acc[key] = [];
     acc[key].push(s);
     return acc;
   }, {});
+
   return (
-    <div className="space-y-6">
-      {Object.entries(grouped).map(([route, list]: any) => (
-        <div key={route}>
-          <div className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-2 px-1">
-            {route} · {(list as any[]).length} 人
-          </div>
-          <div className="space-y-3">
-            {(list as any[]).map((s: any) => (
-              <div key={s.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-600/20 flex items-center justify-center text-2xl">👦</div>
-                <div className="flex-1">
-                  <div className="text-white font-semibold">{s.name}</div>
-                  <div className="text-gray-500 text-xs">{s.school_class}</div>
-                  <div className="text-gray-600 text-xs mt-0.5">家長：{s.parent_name}</div>
+    <div>
+      {/* 搜尋框 */}
+      <input value={search} onChange={e => setSearch(e.target.value)}
+        placeholder="🔍 搜尋學生姓名、班級、路線..."
+        className="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 text-white text-sm mb-4 outline-none focus:border-blue-500" />
+
+      <div className="space-y-6">
+        {Object.entries(grouped).map(([route, list]: any) => (
+          <div key={route}>
+            <div className="text-gray-400 text-xs font-semibold uppercase tracking-widest mb-2 px-1">
+              {route} · {(list as any[]).length} 人
+            </div>
+            <div className="space-y-3">
+              {(list as any[]).map((s: any) => (
+                <div key={s.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-600/20 flex items-center justify-center text-2xl">👦</div>
+                  <div className="flex-1">
+                    <div className="text-white font-semibold">{s.name}</div>
+                    <div className="text-gray-500 text-xs">{s.school_class}</div>
+                    <div className="text-gray-600 text-xs mt-0.5">家長：{s.parent_name}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-gray-400 text-xs">{s.bus_name}</div>
+                    <div className="text-gray-600 text-xs">{s.route_name}</div>
+                    <button onClick={() => setEditTarget(s)}
+                      className="text-blue-500 text-xs mt-1 hover:text-blue-400">✏️ 編輯</button>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-gray-400 text-xs">{s.bus_name}</div>
-                  <div className="text-gray-600 text-xs">{s.route_name}</div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 編輯 Modal */}
+      {editTarget && (
+        <StudentEditModal
+          student={editTarget}
+          buses={buses}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => { setEditTarget(null); onRefresh(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function StudentEditModal({ student, buses, onClose, onSaved }: {
+  student: any; buses: any[]; onClose: () => void; onSaved: () => void;
+}) {
+  const API = process.env.NEXT_PUBLIC_API_URL || '';
+  const token = () => localStorage.getItem('token');
+  const H = () => ({ Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' });
+
+  const [busId, setBusId] = useState(String(student.bus_id || ''));
+  const [schoolClass, setSchoolClass] = useState(student.school_class || '');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const routes = [...new Set(buses.map(b => b.route_name))].sort();
+
+  async function save() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/api/admin/students/${student.id}`, {
+        method: 'PUT', headers: H(),
+        body: JSON.stringify({
+          name: student.name,
+          school_class: schoolClass,
+          bus_id: Number(busId),
+          parent_id: student.parent_id,
+        })
+      });
+      const d = await r.json();
+      if (d.ok) { setMsg('✅ 儲存成功！'); setTimeout(() => onSaved(), 1000); }
+      else { setMsg('❌ ' + (d.error || '儲存失敗')); }
+    } catch { setMsg('❌ 儲存失敗'); }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="bg-gray-900 border border-gray-700 rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 border-b border-gray-800">
+          <div className="font-bold text-white">✏️ 編輯學生資料</div>
+          <button onClick={onClose} className="text-gray-500 text-xl">×</button>
+        </div>
+        <div className="p-5 space-y-4">
+          {msg && (
+            <div className={`rounded-xl p-3 text-sm font-semibold text-center ${msg.startsWith('✅') ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'}`}>
+              {msg}
+            </div>
+          )}
+          <div className="bg-gray-800 rounded-2xl p-4">
+            <div className="text-white font-bold text-lg">{student.name}</div>
+            <div className="text-gray-400 text-sm">家長：{student.parent_name}</div>
+          </div>
+          <div>
+            <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide block mb-1.5">班級</label>
+            <input value={schoolClass} onChange={e => setSchoolClass(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-blue-500" />
+          </div>
+          <div>
+            <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide block mb-1.5">所屬校車</label>
+            {routes.map(route => (
+              <div key={route} className="mb-3">
+                <div className="text-gray-500 text-xs mb-1 px-1">{route}</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {buses.filter(b => b.route_name === route).map(b => (
+                    <button key={b.id} onClick={() => setBusId(String(b.id))}
+                      className={`py-2 px-3 rounded-xl text-sm font-medium text-left transition-all ${busId === String(b.id) ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                      {b.bus_name}
+                      <div className="text-xs opacity-70">{b.student_count}人</div>
+                    </button>
+                  ))}
                 </div>
               </div>
             ))}
           </div>
+          <button onClick={save} disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3 rounded-2xl transition-all active:scale-95">
+            {loading ? '儲存中...' : '儲存變更'}
+          </button>
         </div>
-      ))}
+      </div>
     </div>
   );
 }
