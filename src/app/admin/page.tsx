@@ -4,26 +4,25 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
-
 type Tab = 'buses' | 'drivers' | 'students';
 
 export default function AdminPage() {
   const router = useRouter();
-  const [tab, setTab]           = useState<Tab>('buses');
-  const [buses, setBuses]       = useState<any[]>([]);
-  const [drivers, setDrivers]   = useState<any[]>([]);
+  const [tab, setTab] = useState<Tab>('buses');
+  const [buses, setBuses] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const token   = () => localStorage.getItem('token');
+  const token = () => localStorage.getItem('token');
   const headers = () => ({ Authorization: `Bearer ${token()}` });
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const [b, d, s] = await Promise.all([
-        fetch(`${API}/api/admin/buses`,    { headers: headers() }).then(r => r.json()),
-        fetch(`${API}/api/admin/drivers`,  { headers: headers() }).then(r => r.json()),
+        fetch(`${API}/api/admin/buses`, { headers: headers() }).then(r => r.json()),
+        fetch(`${API}/api/admin/drivers`, { headers: headers() }).then(r => r.json()),
         fetch(`${API}/api/admin/students`, { headers: headers() }).then(r => r.json()),
       ]);
       if (Array.isArray(b)) setBuses(b);
@@ -40,13 +39,16 @@ export default function AdminPage() {
   }, [fetchAll]);
 
   const tabs: { key: Tab; label: string; emoji: string }[] = [
-    { key: 'buses',    label: '校車', emoji: '🚌' },
-    { key: 'drivers',  label: '司機', emoji: '👨‍✈️' },
+    { key: 'buses', label: '校車', emoji: '🚌' },
+    { key: 'drivers', label: '司機', emoji: '👨‍✈️' },
     { key: 'students', label: '學生', emoji: '👦' },
   ];
 
+  const onlineCount = buses.filter(b => b.session_id).length;
+
   return (
     <div className="min-h-dvh bg-gray-950">
+
       {/* Header */}
       <div className="bg-gray-900 border-b border-gray-800 px-4 py-4 flex items-center justify-between">
         <div>
@@ -61,12 +63,41 @@ export default function AdminPage() {
 
       {/* 統計卡 */}
       <div className="grid grid-cols-3 gap-3 px-4 py-4">
-        <StatCard emoji="🚌" label="校車" value={buses.length}   color="blue" />
+        <StatCard emoji="🚌" label="校車" value={buses.length} color="blue" />
         <StatCard emoji="👨‍✈️" label="司機" value={drivers.length} color="emerald" />
         <StatCard emoji="👦" label="學生" value={students.length} color="amber" />
       </div>
 
-      {/* 快速入口 */}
+      {/* 即時地圖入口 */}
+      <div className="px-4 mb-4">
+        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">
+          即時監控
+        </div>
+        <button
+          onClick={() => router.push('/admin/map')}
+          className="w-full bg-gradient-to-r from-blue-900 to-blue-800 hover:from-blue-800 hover:to-blue-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-blue-700/50"
+        >
+          <div className="text-3xl">🗺️</div>
+          <div className="text-left flex-1">
+            <div className="text-white font-bold text-sm">校車即時地圖</div>
+            <div className="text-blue-300 text-xs mt-0.5">查看所有校車位置與行駛路徑</div>
+          </div>
+          {/* 在線指示 */}
+          <div className="text-right">
+            {onlineCount > 0 ? (
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-emerald-400 text-xs font-bold">{onlineCount} 在線</span>
+              </div>
+            ) : (
+              <div className="text-gray-500 text-xs">0 在線</div>
+            )}
+            <div className="text-blue-400 text-lg mt-0.5">›</div>
+          </div>
+        </button>
+      </div>
+
+      {/* 學生建檔 */}
       <div className="px-4 mb-4">
         <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">
           學生建檔
@@ -74,8 +105,7 @@ export default function AdminPage() {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => router.push('/admin/scan')}
-            className="bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all
-                       rounded-2xl p-4 text-left"
+            className="bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all rounded-2xl p-4 text-left"
           >
             <div className="text-2xl mb-2">📷</div>
             <div className="text-white font-bold text-sm">掃描學生證</div>
@@ -83,8 +113,7 @@ export default function AdminPage() {
           </button>
           <button
             onClick={() => router.push('/admin/import')}
-            className="bg-emerald-700 hover:bg-emerald-600 active:scale-95 transition-all
-                       rounded-2xl p-4 text-left"
+            className="bg-emerald-700 hover:bg-emerald-600 active:scale-95 transition-all rounded-2xl p-4 text-left"
           >
             <div className="text-2xl mb-2">📥</div>
             <div className="text-white font-bold text-sm">批次匯入</div>
@@ -100,8 +129,7 @@ export default function AdminPage() {
         </div>
         <button
           onClick={() => router.push('/admin/accounts')}
-          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all
-                     rounded-2xl p-4 flex items-center gap-4 border border-gray-700"
+          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700"
         >
           <div className="text-3xl">👤</div>
           <div className="text-left">
@@ -118,8 +146,9 @@ export default function AdminPage() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 py-2.5 rounded-2xl text-sm font-medium transition-all
-              ${tab === t.key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+            className={`flex-1 py-2.5 rounded-2xl text-sm font-medium transition-all ${
+              tab === t.key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'
+            }`}
           >
             {t.emoji} {t.label}
           </button>
@@ -132,8 +161,8 @@ export default function AdminPage() {
           <div className="text-gray-500 text-center py-12">載入中...</div>
         ) : (
           <>
-            {tab === 'buses'    && <BusList    buses={buses} />}
-            {tab === 'drivers'  && <DriverList drivers={drivers} />}
+            {tab === 'buses' && <BusList buses={buses} />}
+            {tab === 'drivers' && <DriverList drivers={drivers} />}
             {tab === 'students' && <StudentList students={students} />}
           </>
         )}
@@ -145,9 +174,9 @@ export default function AdminPage() {
 // ── 統計卡 ──────────────────────────────────────────
 function StatCard({ emoji, label, value, color }: any) {
   const colors: Record<string, string> = {
-    blue:    'border-blue-800/40 bg-blue-950/30',
+    blue: 'border-blue-800/40 bg-blue-950/30',
     emerald: 'border-emerald-800/40 bg-emerald-950/30',
-    amber:   'border-amber-800/40 bg-amber-950/30',
+    amber: 'border-amber-800/40 bg-amber-950/30',
   };
   return (
     <div className={`rounded-2xl border p-4 text-center ${colors[color]}`}>
@@ -165,7 +194,6 @@ function BusList({ buses }: { buses: any[] }) {
     acc[bus.route_name].push(bus);
     return acc;
   }, {});
-
   return (
     <div className="space-y-6">
       {Object.entries(grouped).map(([route, list]: any) => (
@@ -184,8 +212,7 @@ function BusList({ buses }: { buses: any[] }) {
                       <div className="text-gray-500 text-xs">{bus.route_name}</div>
                     </div>
                   </div>
-                  <div className={`px-2.5 py-1 rounded-full text-xs
-                    ${bus.session_id ? 'bg-emerald-900/50 text-emerald-400' : 'bg-gray-800 text-gray-500'}`}>
+                  <div className={`px-2.5 py-1 rounded-full text-xs ${bus.session_id ? 'bg-emerald-900/50 text-emerald-400' : 'bg-gray-800 text-gray-500'}`}>
                     {bus.session_id ? '行駛中' : '未出發'}
                   </div>
                 </div>
@@ -245,7 +272,6 @@ function StudentList({ students }: { students: any[] }) {
     acc[key].push(s);
     return acc;
   }, {});
-
   return (
     <div className="space-y-6">
       {Object.entries(grouped).map(([route, list]: any) => (
