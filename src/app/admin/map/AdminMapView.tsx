@@ -32,6 +32,7 @@ export default function AdminMapView() {
   const [routeFilter, setRouteFilter] = useState('all');
   const [showPath, setShowPath] = useState(false);
   const [updateTime, setUpdateTime] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false); // 手機版預設收合
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const token = () => localStorage.getItem('token') || '';
@@ -53,6 +54,12 @@ export default function AdminMapView() {
     mapRef.current = m;
     return () => { m.remove(); mapRef.current = null; };
   }, []);
+
+  // 地圖尺寸在 drawer 開關後需要重新計算
+  useEffect(() => {
+    const t = setTimeout(() => { mapRef.current?.invalidateSize(); }, 320);
+    return () => clearTimeout(t);
+  }, [drawerOpen]);
 
   // ── 建立 marker icon ──
   function createIcon(bus: any) {
@@ -94,7 +101,6 @@ export default function AdminMapView() {
     const map = mapRef.current;
     const mkrs = markersRef.current;
 
-    // 移除不存在的
     Object.keys(mkrs).forEach((id) => {
       if (!data.find((b) => b.id == id)) { mkrs[Number(id)].remove(); delete mkrs[Number(id)]; }
     });
@@ -130,6 +136,8 @@ export default function AdminMapView() {
     });
     setShowPath(false);
     clearPath();
+    // 手機點選校車後自動收合 drawer，讓地圖可見
+    setDrawerOpen(false);
   }
 
   async function togglePath() {
@@ -189,9 +197,47 @@ export default function AdminMapView() {
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
 
+        {/* ── 手機遮罩（drawer 開時點外面收合）── */}
+        {drawerOpen && (
+          <div
+            onClick={() => setDrawerOpen(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 39, background: 'rgba(0,0,0,0.5)' }}
+            className="md-hide"
+          />
+        )}
+
         {/* ── 側邊欄 ── */}
-        <div style={{ width: 280, background: '#111827', borderRight: '1px solid #1e3a5f', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid #1e3a5f', fontSize: 11, color: '#94a3b8', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>校車列表</div>
+        <div style={{
+          // 桌機：固定 280px，正常 flex
+          // 手機：absolute 覆蓋，靠 transform 滑入滑出
+          width: 280,
+          background: '#111827',
+          borderRight: '1px solid #1e3a5f',
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
+          overflow: 'hidden',
+          // 手機響應式透過 inline style + CSS variable 模擬
+          // 用 position + transform 處理
+          position: undefined,
+          zIndex: undefined,
+          transition: 'transform 0.3s ease',
+        }}
+          // 直接用 className 做響應式
+          className={`bus-drawer${drawerOpen ? ' drawer-open' : ''}`}
+        >
+          {/* 手機版標題列（含關閉按鈕） */}
+          <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid #1e3a5f', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>校車列表</div>
+            {/* 關閉按鈕：手機才顯示 */}
+            <button
+              onClick={() => setDrawerOpen(false)}
+              className="drawer-close-btn"
+              style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
+            >
+              ×
+            </button>
+          </div>
 
           {/* 路線篩選 */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: 8 }}>
@@ -235,6 +281,22 @@ export default function AdminMapView() {
         {/* ── 地圖 ── */}
         <div ref={mapElRef} style={{ flex: 1 }} />
 
+        {/* ── 手機版「校車列表」浮動按鈕 ── */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          className="drawer-fab"
+          style={{
+            position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            background: '#3b82f6', border: 'none', color: '#fff',
+            padding: '10px 22px', borderRadius: 24, fontSize: 14, fontWeight: 700,
+            cursor: 'pointer', zIndex: 500, boxShadow: '0 4px 16px rgba(0,0,0,.5)',
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontFamily: "'Noto Sans TC', sans-serif",
+          }}
+        >
+          🚌 校車列表
+        </button>
+
         {/* ── 詳情面板 ── */}
         {selBus && (
           <div style={{ position: 'absolute', bottom: 16, right: 16, background: '#111827', border: '1px solid #1e3a5f', borderRadius: 12, padding: 14, width: 260, zIndex: 999 }}>
@@ -259,6 +321,38 @@ export default function AdminMapView() {
           </div>
         )}
       </div>
+
+      {/* ── 響應式 CSS ── */}
+      <style>{`
+        /* 桌機（768px 以上）：drawer 正常顯示，FAB 隱藏，關閉鈕隱藏 */
+        @media (min-width: 768px) {
+          .bus-drawer {
+            position: relative !important;
+            transform: none !important;
+            z-index: auto !important;
+          }
+          .drawer-fab { display: none !important; }
+          .drawer-close-btn { display: none !important; }
+          .md-hide { display: none !important; }
+        }
+
+        /* 手機（767px 以下）：drawer 絕對定位，預設滑出畫面左側 */
+        @media (max-width: 767px) {
+          .bus-drawer {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            height: 100% !important;
+            width: 85vw !important;
+            max-width: 320px !important;
+            z-index: 40 !important;
+            transform: translateX(-100%) !important;
+          }
+          .bus-drawer.drawer-open {
+            transform: translateX(0) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
