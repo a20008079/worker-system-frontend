@@ -36,6 +36,9 @@ export default function ParentMapView() {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(m);
     L.control.zoom({ position: 'topright' }).addTo(m);
     mapRef.current = m;
+    // 初始化後強制重算尺寸（修正空白地圖問題）
+    setTimeout(() => m.invalidateSize(), 200);
+    setTimeout(() => m.invalidateSize(), 800);
     return () => { m.remove(); mapRef.current = null; };
   }, []);
 
@@ -187,7 +190,7 @@ export default function ParentMapView() {
       </div>
 
       {/* 地圖 */}
-      <div ref={mapElRef} style={{ flex: 1, minHeight: 0 }} />
+      <div ref={mapElRef} style={{ flex: 1, minHeight: 200 }} />
 
       {/* 底部面板收合拉把 */}
       <div
