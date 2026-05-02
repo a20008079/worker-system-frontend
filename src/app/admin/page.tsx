@@ -619,7 +619,17 @@ function StudentList({ students, buses, onRefresh }: { students: any[]; buses: a
                       <div className="text-gray-600 text-xs mt-0.5">家長：{s.parent_name}</div>
                       {/* 新欄位摘要 */}
                       <div className="mt-2 flex flex-wrap gap-1">
-                        {s.dismissal_session && (
+                        {(s.dismissal_mon || s.dismissal_tue || s.dismissal_wed || s.dismissal_thu || s.dismissal_fri) ? (
+                          <span className="px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded-full text-xs">
+                            {[
+                              s.dismissal_mon && `一${s.dismissal_mon}`,
+                              s.dismissal_tue && `二${s.dismissal_tue}`,
+                              s.dismissal_wed && `三${s.dismissal_wed}`,
+                              s.dismissal_thu && `四${s.dismissal_thu}`,
+                              s.dismissal_fri && `五${s.dismissal_fri}`,
+                            ].filter(Boolean).join(' ')}
+                          </span>
+                        ) : s.dismissal_session && (
                           <span className="px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded-full text-xs">
                             放學 {sessionLabel[s.dismissal_session] || s.dismissal_session}
                           </span>
@@ -683,6 +693,14 @@ function StudentEditModal({ student, buses, onClose, onSaved }: {
   const [dropoff1800,      setDropoff1800]      = useState(student.dropoff_1800 || '');
   const [dismissalSession, setDismissalSession] = useState(student.dismissal_session || '');
   const [activeDays,       setActiveDays]       = useState(student.active_days || '12345');
+  const [schoolDirection,  setSchoolDirection]  = useState(student.school_direction || '');
+  const [dismissalDays,    setDismissalDays]    = useState({
+    mon: student.dismissal_mon || '',
+    tue: student.dismissal_tue || '',
+    wed: student.dismissal_wed || '',
+    thu: student.dismissal_thu || '',
+    fri: student.dismissal_fri || '',
+  });
   const [loading,          setLoading]          = useState(false);
   const [msg,              setMsg]              = useState('');
 
@@ -711,6 +729,12 @@ function StudentEditModal({ student, buses, onClose, onSaved }: {
           dropoff_1800:     dropoff1800,
           dismissal_session: dismissalSession || null,
           active_days:      activeDays || '12345',
+          school_direction: schoolDirection || null,
+          dismissal_mon: dismissalDays.mon || null,
+          dismissal_tue: dismissalDays.tue || null,
+          dismissal_wed: dismissalDays.wed || null,
+          dismissal_thu: dismissalDays.thu || null,
+          dismissal_fri: dismissalDays.fri || null,
         })
       });
       const d = await r.json();
@@ -788,6 +812,56 @@ function StudentEditModal({ student, buses, onClose, onSaved }: {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* 上放學方向 */}
+          <div>
+            <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide block mb-2">搭車方向</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { v: 'morning',   label: '上學', emoji: '🌅' },
+                { v: 'afternoon', label: '放學', emoji: '🏫' },
+                { v: 'both',      label: '上下學', emoji: '🔄' },
+              ].map(opt => (
+                <button key={opt.v} onClick={() => setSchoolDirection(schoolDirection === opt.v ? '' : opt.v)}
+                  className={`py-3 rounded-xl text-sm font-medium transition-all ${schoolDirection === opt.v ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>
+                  <div>{opt.emoji}</div>
+                  <div className="text-xs mt-0.5">{opt.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 每天放學時段 */}
+          <div className="border border-gray-700 rounded-2xl p-4 space-y-3">
+            <div className="text-gray-300 text-sm font-semibold">🕐 每天放學時段</div>
+            {[
+              { key: 'mon', label: '週一' },
+              { key: 'tue', label: '週二' },
+              { key: 'wed', label: '週三' },
+              { key: 'thu', label: '週四' },
+              { key: 'fri', label: '週五' },
+            ].map(day => (
+              <div key={day.key} className="flex items-center gap-3">
+                <div className="text-gray-400 text-sm w-10 flex-shrink-0">{day.label}</div>
+                <div className="flex gap-2 flex-1">
+                  {[
+                    { v: '1620', label: '16:20', color: 'bg-purple-600' },
+                    { v: '1800', label: '18:00', color: 'bg-orange-600' },
+                    { v: '不搭', label: '不搭',  color: 'bg-gray-600' },
+                  ].map(opt => (
+                    <button key={opt.v}
+                      onClick={() => setDismissalDays(prev => ({ ...prev, [day.key]: prev[day.key as keyof typeof prev] === opt.v ? '' : opt.v }))}
+                      className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all
+                        ${dismissalDays[day.key as keyof typeof dismissalDays] === opt.v
+                          ? opt.color + ' text-white'
+                          : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* 搭車星期 */}
