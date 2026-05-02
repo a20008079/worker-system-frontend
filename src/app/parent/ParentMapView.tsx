@@ -8,10 +8,15 @@ const REFRESH_MS = 20000;
 
 export default function ParentMapView() {
   const router = useRouter();
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const pathRef = useRef<any>(null);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
   const [data, setData] = useState<any[]>([]);
   const [cur, setCur] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showPath, setShowPath] = useState(false);
   const [progress, setProgress] = useState(0);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const elapsed = useRef(0);
@@ -19,17 +24,78 @@ export default function ParentMapView() {
   const token = () => localStorage.getItem('token') || '';
   const H = () => ({ Authorization: `Bearer ${token()}` });
 
+  // 初始化 Leaflet（全部在 useEffect 內動態載入）
+  useEffect(() => {
+    let map: any = null;
+
+    const init = async () => {
+      if (!mapContainerRef.current) return;
+
+      // 動態插入 Leaflet CSS
+      if (!document.getElementById('leaflet-css')) {
+        const link = document.createElement('link');
+        link.id = 'leaflet-css';
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+      }
+
+      // 等 CSS 載入
+      await new Promise(r => setTimeout(r, 200));
+
+      // 動態載入 Leaflet JS
+      const L = (await import('leaflet')).default;
+
+      if (mapRef.current) return; // 已初始化
+
+      map = L.map(mapContainerRef.current, {
+        center: [24.9675, 121.2168],
+        zoom: 13,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+      }).addTo(map);
+
+      L.control.zoom({ position: 'topright' }).addTo(map);
+      mapRef.current = map;
+
+      setTimeout(() => map?.invalidateSize(), 100);
+      setTimeout(() => map?.invalidateSize(), 600);
+    };
+
+    init();
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 面板收合時重算地圖
+  useEffect(() => {
+    const t = setTimeout(() => mapRef.current?.invalidateSize(), 350);
+    return () => clearTimeout(t);
+  }, [panelCollapsed]);
+
   const fetchData = useCallback(async () => {
     try {
       const r = await fetch(`${API}/api/parent/me`, { headers: H() });
       if (r.status === 401) { router.push('/login'); return; }
       const d = await r.json();
-      setData(d); setLoading(false);
+      setData(d);
+      setLoading(false);
     } catch { setLoading(false); }
   }, [router]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // 進度條
   useEffect(() => {
     if (loading || !data.length) return;
     elapsed.current = 0;
@@ -37,10 +103,77 @@ export default function ParentMapView() {
     progressRef.current = setInterval(async () => {
       elapsed.current += 250;
       setProgress(Math.min(100, (elapsed.current / REFRESH_MS) * 100));
-      if (elapsed.current >= REFRESH_MS) { elapsed.current = 0; setProgress(0); await fetchData(); }
+      if (elapsed.current >= REFRESH_MS) {
+        elapsed.current = 0; setProgress(0); await fetchData();
+      }
     }, 250);
     return () => { if (progressRef.current) clearInterval(progressRef.current); };
   }, [loading, data.length, fetchData]);
+
+  // 更新 marker
+  useEffect(() => {
+    if (!data.length) return;
+    const item = data[cur];
+
+    const updateMap = async () => {
+      if (!mapRef.current) {
+        await new Promise(r => setTimeout(r, 500));
+        if (!mapRef.current) return;
+      }
+      const L = (await import('leaflet')).default;
+
+      if (!item?.location) {
+        if (markerRef.current) { markerRef.current.remove(); markerRef.current = null; }
+        return;
+      }
+
+      const { latitude, longitude } = item.location;
+      const isOn = item.is_online;
+
+      const icon = L.divIcon({
+        html: `<div style="position:relative">
+          <div style="width:44px;height:44px;background:${isOn ? '#3b82f6' : '#94a3b8'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.3)">🚌</div>
+          ${isOn ? '<div style="position:absolute;top:-2px;right:-2px;width:10px;height:10px;background:#10b981;border-radius:50%;border:2px solid #fff"></div>' : ''}
+        </div>`,
+        className: '',
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+
+      if (markerRef.current) {
+        markerRef.current.setLatLng([latitude, longitude]).setIcon(icon);
+      } else {
+        markerRef.current = L.marker([latitude, longitude], { icon }).addTo(mapRef.current);
+      }
+      mapRef.current.setView([latitude, longitude], 15, { animate: true });
+    };
+
+    updateMap();
+  }, [data, cur]);
+
+  const togglePath = async () => {
+    if (!data.length || !mapRef.current) return;
+    const item = data[cur];
+    if (showPath) {
+      if (pathRef.current) { mapRef.current.removeLayer(pathRef.current); pathRef.current = null; }
+      setShowPath(false); return;
+    }
+    try {
+      const r = await fetch(`${API}/api/admin/buses/${item.bus.id}/history`, { headers: H() });
+      if (!r.ok) return;
+      const pts = await r.json();
+      if (!pts.length) return;
+      const L = (await import('leaflet')).default;
+      const latlngs = pts.map((p: any) => [p.latitude, p.longitude] as [number, number]);
+      const lg = L.layerGroup();
+      L.polyline(latlngs, { color: '#3b82f6', weight: 5, opacity: 0.7 }).addTo(lg);
+      if (latlngs.length) L.circleMarker(latlngs[0], { radius: 6, fillColor: '#10b981', color: '#fff', weight: 2, fillOpacity: 1 }).bindTooltip('出發點').addTo(lg);
+      lg.addTo(mapRef.current);
+      pathRef.current = lg;
+      try { mapRef.current.fitBounds(latlngs, { padding: [50, 50] }); } catch {}
+      setShowPath(true);
+    } catch {}
+  };
 
   if (loading) return (
     <div className="min-h-dvh bg-gray-50 flex items-center justify-center flex-col gap-3">
@@ -65,12 +198,6 @@ export default function ParentMapView() {
   const lastSeen = location?.created_at
     ? new Date(location.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : null;
-
-  // 用 OpenStreetMap iframe 顯示地圖
-  const lat = location?.latitude || 24.9675;
-  const lng = location?.longitude || 121.2168;
-  const zoom = location ? 15 : 12;
-  const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${lng-0.01},${lat-0.01},${lng+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lng}`;
 
   return (
     <div className="flex flex-col bg-gray-50" style={{ height: '100dvh', maxWidth: 500, margin: '0 auto' }}>
@@ -100,29 +227,8 @@ export default function ParentMapView() {
         )}
       </div>
 
-      {/* 地圖 - 用 iframe */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
-        {location ? (
-          <iframe
-            key={`${lat}-${lng}`}
-            src={mapSrc}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="校車位置地圖"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100 flex-col gap-3">
-            <div className="text-4xl">🗺️</div>
-            <div className="text-gray-400 text-sm">尚無定位資訊</div>
-          </div>
-        )}
-        {/* 在線指示器 */}
-        {is_online && location && (
-          <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: 12, fontWeight: 600 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', animation: 'pulse 2s infinite' }} />
-            行駛中
-          </div>
-        )}
-      </div>
+      {/* 地圖容器 */}
+      <div ref={mapContainerRef} style={{ flex: 1, minHeight: 0 }} />
 
       {/* 收合拉把 */}
       <div onClick={() => setPanelCollapsed(!panelCollapsed)}
@@ -161,8 +267,15 @@ export default function ParentMapView() {
             </div>
           )}
 
+          {location && is_online && (
+            <button onClick={togglePath}
+              className={`w-full py-2 rounded-xl text-sm font-semibold mb-3 transition-all border ${showPath ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-500'}`}>
+              {showPath ? '🗑️ 隱藏行駛路徑' : '📍 顯示今日行駛路徑'}
+            </button>
+          )}
+
           <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-2">我的孩子</div>
-          <div className={`flex items-center gap-3 border rounded-2xl px-4 py-3 transition-all ${item.alighted_at ? 'border-purple-300 bg-purple-50' : boarded_at ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'}`}>
+          <div className={`flex items-center gap-3 border rounded-2xl px-4 py-3 ${item.alighted_at ? 'border-purple-300 bg-purple-50' : boarded_at ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'}`}>
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 flex-shrink-0 ${item.alighted_at ? 'bg-purple-100 border-purple-300' : boarded_at ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-200'}`}>
               {item.alighted_at ? '🏠' : boarded_at ? '✅' : '👦'}
             </div>
