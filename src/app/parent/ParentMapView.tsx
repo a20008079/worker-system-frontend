@@ -55,13 +55,7 @@ export default function ParentMapView() {
       L.control.zoom({ position: 'topright' }).addTo(m);
       mapInstanceRef.current = m;
 
-      // 用 ResizeObserver 確保地圖在容器有尺寸時才 invalidateSize
-      const observer = new ResizeObserver(() => {
-        m.invalidateSize();
-      });
-      observer.observe(container);
-
-      setTimeout(() => { m.invalidateSize(); setMapReady(true); }, 300);
+      setTimeout(() => m.invalidateSize(), 300);
       setTimeout(() => m.invalidateSize(), 800);
     };
 
@@ -72,8 +66,7 @@ export default function ParentMapView() {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         markerRef.current = null;
-        setMapReady(false);
-      }
+        }
     };
   }, []);
 
@@ -149,7 +142,7 @@ export default function ParentMapView() {
       markerRef.current = L.marker([latitude, longitude], { icon }).addTo(mapInstanceRef.current);
     }
     mapInstanceRef.current.setView([latitude, longitude], 15, { animate: true });
-  }, [data, cur, mapReady]);
+  }, [data, cur]);
 
   const togglePath = async () => {
     if (!data.length) return;
@@ -241,9 +234,6 @@ export default function ParentMapView() {
       {/* 地圖容器 */}
       <div style={{ height: mapHeight, flexShrink: 0, position: 'relative', background: '#e8f4f8', overflow: 'hidden' }}>
         <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
-        {!mapReady && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 14 }}>
-            🗺️ 地圖載入中...
           </div>
         )}
       </div>
