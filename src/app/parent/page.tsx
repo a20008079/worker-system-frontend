@@ -1,20 +1,17 @@
 'use client';
-// src/app/parent/page.tsx — 家長校車追蹤（地圖 + 路徑 + 進度條）
-import { useEffect, useState, useCallback, useRef } from 'react';
+// src/app/parent/page.tsx
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-
-const API = process.env.NEXT_PUBLIC_API_URL || '';
+import 'leaflet/dist/leaflet.css';
 
 const ParentMapView = dynamic(() => import('./ParentMapView'), { ssr: false });
 
 export default function ParentPage() {
   const router = useRouter();
-
   useEffect(() => {
     const role = localStorage.getItem('role');
     if (role !== 'parent') router.push('/login');
   }, [router]);
-
   return <ParentMapView />;
 }
