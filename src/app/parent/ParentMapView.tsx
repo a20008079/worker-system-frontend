@@ -2,6 +2,7 @@
 // src/app/parent/ParentMapView.tsx
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -137,26 +138,18 @@ export default function ParentMapView() {
       if (markerRef.current) { markerRef.current.remove(); markerRef.current = null; }
       return;
     }
-
-    const updateMarker = async () => {
-      const L = (await import('leaflet')).default;
-      const { latitude, longitude } = item.location;
-      const isOn = item.is_online;
-
-      const icon = L.divIcon({
-        html: `<div style="width:48px;height:48px;background:${isOn ? '#3b82f6' : '#e2e8f0'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.25)">${isOn ? '🚌' : '🅿️'}</div>`,
-        className: '', iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -28],
-      });
-
-      if (markerRef.current) {
-        markerRef.current.setLatLng([latitude, longitude]).setIcon(icon);
-      } else {
-        markerRef.current = L.marker([latitude, longitude], { icon }).addTo(mapInstanceRef.current);
-      }
-      mapInstanceRef.current.setView([latitude, longitude], 15, { animate: true });
-    };
-
-    updateMarker();
+    const { latitude, longitude } = item.location;
+    const isOn = item.is_online;
+    const icon = L.divIcon({
+      html: `<div style="width:48px;height:48px;background:${isOn ? '#3b82f6' : '#e2e8f0'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.25)">${isOn ? '🚌' : '🅿️'}</div>`,
+      className: '', iconSize: [48, 48], iconAnchor: [24, 24], popupAnchor: [0, -28],
+    });
+    if (markerRef.current) {
+      markerRef.current.setLatLng([latitude, longitude]).setIcon(icon);
+    } else {
+      markerRef.current = L.marker([latitude, longitude], { icon }).addTo(mapInstanceRef.current);
+    }
+    mapInstanceRef.current.setView([latitude, longitude], 15, { animate: true });
   }, [data, cur, mapReady]);
 
   const togglePath = async () => {
@@ -176,7 +169,6 @@ export default function ParentMapView() {
   const drawPath = async (latlngs: [number, number][]) => {
     if (!mapInstanceRef.current) return;
     clearPath();
-    const L = (await import('leaflet')).default;
     const lg = L.layerGroup();
     L.polyline(latlngs, { color: '#3b82f6', weight: 5, opacity: 0.7 }).addTo(lg);
     if (latlngs.length) {
