@@ -802,7 +802,7 @@ function StudentEditModal({ student, buses, onClose, onSaved }: {
               ))}
             </div>
             <div className="text-gray-600 text-xs mt-1 px-1">
-              已選：{activeDays.length === 0 ? '無' : activeDays.split('').map(k => DAYS.find(d => d.key === k)?.label).join('、')}
+              已選：{activeDays.length === 0 ? '無' : activeDays.split('').map((k: string) => DAYS.find(d => d.key === k)?.label).join('、')}
             </div>
           </div>
 
