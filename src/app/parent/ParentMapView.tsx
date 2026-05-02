@@ -21,6 +21,9 @@ export default function ParentMapView() {
   const [progress, setProgress] = useState(0);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [mapHeight, setMapHeight] = useState(300);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const elapsed = useRef(0);
 
   const token = () => localStorage.getItem('token') || '';
@@ -70,6 +73,23 @@ export default function ParentMapView() {
       }
     };
   }, []);
+
+  // 計算地圖高度
+  const calcMapHeight = useCallback(() => {
+    const total = window.innerHeight;
+    const headerH = headerRef.current?.offsetHeight || 0;
+    const panelH = panelCollapsed ? 28 : (panelRef.current?.offsetHeight || 200) + 28;
+    const progressH = 3;
+    const h = total - headerH - panelH - progressH;
+    setMapHeight(Math.max(h, 150));
+    setTimeout(() => mapInstanceRef.current?.invalidateSize(), 50);
+  }, [panelCollapsed]);
+
+  useEffect(() => {
+    calcMapHeight();
+    window.addEventListener('resize', calcMapHeight);
+    return () => window.removeEventListener('resize', calcMapHeight);
+  }, [calcMapHeight]);
 
   // 面板收合時重算地圖尺寸
   useEffect(() => {
@@ -204,7 +224,7 @@ export default function ParentMapView() {
       </div>
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-5 py-3 flex-shrink-0" style={{ boxShadow: '0 4px 20px rgba(0,0,0,.06)' }}>
+      <div ref={headerRef} className="bg-white border-b border-gray-100 px-5 py-3 flex-shrink-0" style={{ boxShadow: '0 4px 20px rgba(0,0,0,.06)' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="font-black text-gray-900 text-lg tracking-tight">🚌 校車追蹤</div>
           <div className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${is_online ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -225,8 +245,8 @@ export default function ParentMapView() {
       </div>
 
       {/* 地圖容器 */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#e8f4f8', overflow: 'hidden' }}>
-        <div ref={mapContainerRef} style={{ position: 'absolute', inset: 0 }} />
+      <div style={{ height: mapHeight, flexShrink: 0, position: 'relative', background: '#e8f4f8', overflow: 'hidden' }}>
+        <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
         {!mapReady && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 14 }}>
             🗺️ 地圖載入中...
@@ -246,7 +266,7 @@ export default function ParentMapView() {
       </div>
 
       {/* 底部面板 */}
-      <div className="bg-white flex-shrink-0 overflow-hidden"
+      <div ref={panelRef} className="bg-white flex-shrink-0 overflow-hidden"
         style={{ maxHeight: panelCollapsed ? 0 : 400, transition: 'max-height 0.3s ease' }}>
         <div className="px-5 py-4">
           {is_online ? (
