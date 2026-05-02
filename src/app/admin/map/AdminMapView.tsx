@@ -172,7 +172,7 @@ export default function AdminMapView() {
         {/* 手機遮罩 */}
         {drawerOpen && (
           <div onClick={() => setDrawerOpen(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 39, background: 'rgba(0,0,0,0.5)' }}
+            style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.5)' }}
             className="md-hide" />
         )}
 
@@ -296,7 +296,7 @@ export default function AdminMapView() {
       </div>
 
       <style>{`
-        @media (min-width: 768px) {
+        @media (min-width: 1024px) {
           .bus-drawer {
             position: relative !important;
             transform: none !important;
@@ -318,13 +318,13 @@ export default function AdminMapView() {
           .md-hide { display: none !important; }
           .sidebar-toggle-btn { display: flex !important; }
         }
-        @media (max-width: 767px) {
+        @media (max-width: 1023px) {
           .bus-drawer {
-            position: absolute !important;
+            position: fixed !important;
             top: 0 !important; left: 0 !important;
             height: 100% !important;
             width: 85vw !important; max-width: 320px !important;
-            z-index: 40 !important;
+            z-index: 1000 !important;
             transform: translateX(-100%) !important;
             display: flex !important; flex-direction: column !important;
             background: #111827 !important;
@@ -333,6 +333,7 @@ export default function AdminMapView() {
           }
           .bus-drawer.drawer-open { transform: translateX(0) !important; }
           .sidebar-toggle-btn { display: none !important; }
+          .drawer-fab { display: flex !important; }
         }
       `}</style>
     </div>
