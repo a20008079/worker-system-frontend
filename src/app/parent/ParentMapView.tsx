@@ -2,6 +2,7 @@
 // src/app/parent/ParentMapView.tsx
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import 'leaflet/dist/leaflet.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const REFRESH_MS = 20000;
@@ -31,7 +32,6 @@ export default function ParentMapView() {
 
     const initMap = async () => {
       const L = (await import('leaflet')).default;
-      await import('leaflet/dist/leaflet.css');
 
       // 確保容器有尺寸
       const container = mapContainerRef.current;
