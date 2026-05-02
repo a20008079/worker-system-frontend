@@ -1,235 +1,314 @@
 'use client';
-// src/app/admin/import/page.tsx — 完整批次匯入
-import { useState, useRef } from 'react';
+// src/app/admin/import/page.tsx — 新學期自動匯入（支援 Google 表單格式）
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import * as XLSX from 'xlsx';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-const HEADERS = ['route_name','bus_name','driver_name','driver_phone','student_name','student_code','class_name','parent_name','parent_phone'];
-const EXAMPLE = [
-  ['觀音線','觀音線01','陳大明','0912345678','王小明','S001','三年二班','王爸爸','0911111111'],
-  ['觀音線','觀音線01','陳大明','0912345678','李小美','S002','四年一班','李媽媽','0922222222'],
-  ['大園線','大園線01','李小華','0923456789','張小強','S003','二年三班','張爸爸','0933333333'],
-];
+// Google 表單欄位對應
+const COL_MAP: Record<string, string> = {
+  'j;6':                        'class_name',
+  '班級':                        'class_name',
+  '座號':                        'seat_no',
+  '學生姓名':                    'student_name',
+  '家長姓名':                    'parent_name',
+  '家長聯繫電話':                'parent_phone',
+  '住家地址':                    'address',
+  '搭車時段':                    'direction',
+  '上學地點(請填寫停車點名稱)':  'pickup_location',
+  '放學地點 (請填寫停車點名稱)': 'dropoff_location',
+  '放學時段 [星期一]':           'dismissal_mon',
+  '放學時段 [星期二]':           'dismissal_tue',
+  '放學時段 [星期三]':           'dismissal_wed',
+  '放學時段 [星期四]':           'dismissal_thu',
+  '放學時段 [星期五]':           'dismissal_fri',
+};
 
 export default function ImportPage() {
-  const router  = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [rows, setRows]       = useState<any[]>([]);
-  const [result, setResult]   = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg]         = useState('');
+  const router = useRouter();
+  const [step, setStep]         = useState<'upload' | 'preview' | 'result'>('upload');
+  const [rows, setRows]         = useState<any[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const [result, setResult]     = useState<any>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [fileName, setFileName] = useState('');
 
-  const token = () => localStorage.getItem('token');
+  const token   = () => localStorage.getItem('token');
+  const headers = () => ({ Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' });
 
-  const [downloading, setDownloading] = useState(false);
+  const parseExcel = useCallback((file: File) => {
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = e.target?.result;
+      const wb = XLSX.read(data, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
 
-  const downloadDatabase = async () => {
-    setDownloading(true);
-    try {
-      const r = await fetch(`${API}/api/admin/export`, {
-        headers: { Authorization: `Bearer ${token()}` }
-      });
-      if (!r.ok) { setMsg('下載失敗'); return; }
-      const blob = await r.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url;
-      a.download = `校車學生資料庫_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '')}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch { setMsg('下載失敗'); }
-    finally { setDownloading(false); }
+      // 對應欄位
+      const mapped = raw.map(row => {
+        const out: any = {};
+        for (const [col, key] of Object.entries(COL_MAP)) {
+          if (row[col] !== undefined) out[key] = String(row[col]).trim();
+        }
+        // 過濾掉完全空白的列
+        return out;
+      }).filter(r => r.student_name && r.parent_phone);
+
+      setRows(mapped);
+      setStep('preview');
+    };
+    reader.readAsBinaryString(file);
+  }, []);
+
+  const handleFile = (file: File) => {
+    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+      alert('請上傳 Excel 或 CSV 檔案');
+      return;
+    }
+    parseExcel(file);
   };
 
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setResult(null); setMsg('');
-    const ext = file.name.split('.').pop()?.toLowerCase();
-
-    if (ext === 'csv') {
-      const text = await file.text();
-      const lines = text.split('\n').filter(l => l.trim());
-      const headers = lines[0].split(',').map(h => h.replace(/^\uFEFF/, '').trim());
-      const parsed  = lines.slice(1).map(line => {
-        const vals = line.split(',').map(v => v.trim());
-        const obj: any = {};
-        headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
-        return obj;
-      }).filter(r => r.student_name);
-      setRows(parsed);
-      setMsg(`已讀取 ${parsed.length} 筆資料`);
-    } else if (ext === 'xlsx' || ext === 'xls') {
-      const XLSX = await import('xlsx');
-      const ab   = await file.arrayBuffer();
-      const wb   = XLSX.read(ab, { type: 'array' });
-      const ws   = wb.Sheets[wb.SheetNames[0]];
-      const data: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      if (data.length < 2) { setMsg('檔案沒有資料'); return; }
-      // 自動找欄位名稱列（找包含 route_name 或 bus_name 的那列）
-      const headerRowIdx = data.findIndex((row: any[]) =>
-        row.some((cell: any) => String(cell || '').trim() === 'bus_name' || String(cell || '').trim() === 'route_name')
-      );
-      if (headerRowIdx < 0) { setMsg('找不到欄位名稱列，請確認檔案有 bus_name 等欄位名'); return; }
-      const headers = data[headerRowIdx].map((h: any) => String(h).trim());
-      // 跳過欄位名稱列之後的中文說明列（如果下一列不含實際資料）
-      let dataStartIdx = headerRowIdx + 1;
-      // 如果下一列的第一欄包含中文且不是實際資料，就再跳一列
-      if (data[dataStartIdx] && String(data[dataStartIdx][0] || '').match(/[一-鿿]/)) {
-        // 檢查是否是說明列（包含「必填」「選填」等字樣）
-        const firstCell = String(data[dataStartIdx][0] || '');
-        if (firstCell.includes('必填') || firstCell.includes('選填') || firstCell.includes('如：')) {
-          dataStartIdx++;
-        }
-      }
-      const parsed  = data.slice(dataStartIdx)
-        .filter((r: any[]) => r.some(c => c !== undefined && c !== ''))
-        .map((r: any[]) => {
-          const obj: any = {};
-          headers.forEach((h: string, i: number) => { obj[h] = r[i] !== undefined ? String(r[i]).trim() : ''; });
-          return obj;
-        });
-      setRows(parsed);
-      setMsg(`已讀取 ${parsed.length} 筆資料`);
-    }
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
   };
 
   const handleImport = async () => {
-    if (!rows.length) return;
     setLoading(true);
     try {
-      const r = await fetch(`${API}/api/admin/import-full`, {
+      const r = await fetch(`${API}/api/admin/import-semester`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+        headers: headers(),
         body: JSON.stringify({ rows }),
       });
       const d = await r.json();
       setResult(d);
-      setRows([]);
-      if (fileRef.current) fileRef.current.value = '';
-    } catch { setMsg('匯入失敗'); }
-    finally { setLoading(false); }
+      setStep('result');
+    } catch {
+      alert('匯入失敗，請重試');
+    }
+    setLoading(false);
+  };
+
+  const dirLabel: Record<string, string> = {
+    morning: '🌅 上學', afternoon: '🏫 放學', both: '🔄 上下學'
   };
 
   return (
-    <div className="min-h-dvh bg-gray-950 flex flex-col max-w-lg mx-auto">
-      <div className="bg-gray-900 border-b border-gray-800 px-4 py-4 flex items-center gap-3 sticky top-0">
-        <button onClick={() => router.push('/admin')} className="text-gray-400 text-xl">←</button>
+    <div className="min-h-dvh bg-gray-950">
+      {/* Header */}
+      <div className="bg-gray-900 border-b border-gray-800 px-4 py-4 flex items-center gap-3">
+        <button onClick={() => router.back()} className="text-gray-400 text-xl">←</button>
         <div>
-          <div className="text-white font-bold">批次匯入名單</div>
-          <div className="text-gray-500 text-xs">一次建立司機、校車、學生、家長</div>
+          <div className="text-white font-bold text-base">📥 新學期匯入</div>
+          <div className="text-gray-500 text-xs">支援 Google 表單 Excel 格式</div>
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-6 space-y-4">
-        {/* 範本下載 */}
-        <div className="bg-blue-950/30 border border-blue-800/40 rounded-2xl p-4">
-          <div className="text-blue-300 font-semibold mb-1">📋 第一步：下載資料庫</div>
-          <div className="text-gray-400 text-sm mb-3">下載現有學生資料，編輯後重新上傳可新增或更新</div>
-          <button onClick={downloadDatabase} disabled={downloading}
-            className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-medium text-sm">
-            ⬇️ 下載資料庫 (.xlsx)
-          </button>
-        </div>
+      <div className="px-4 py-6 max-w-2xl mx-auto">
 
-        {/* 欄位說明 */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-          <div className="text-gray-400 text-xs font-semibold mb-3">欄位說明</div>
-          <div className="space-y-1.5">
-            {[
-              ['route_name',    '路線名稱',   '選填，如：觀音線'],
-              ['bus_name',      '車次名稱',   '必填，如：觀音線01'],
-              ['driver_name',   '司機姓名',   '選填'],
-              ['driver_phone',  '司機手機',   '選填（作為司機帳號，密碼=後4碼）'],
-              ['student_name',  '學生姓名',   '必填'],
-              ['student_code',  '學生證號',   '選填（用於掃描上車）'],
-              ['class_name',    '班級',       '選填'],
-              ['parent_name',   '家長姓名',   '必填'],
-              ['parent_phone',  '家長手機',   '必填（作為家長帳號，密碼=後4碼）'],
-            ].map(([key, label, note]) => (
-              <div key={key} className="flex items-center gap-2 text-xs">
-                <code className="bg-gray-800 px-2 py-0.5 rounded text-blue-400 w-28 shrink-0">{key}</code>
-                <span className="text-gray-300">{label}</span>
-                <span className="text-gray-600 ml-auto text-right">{note}</span>
+        {/* Step 1: 上傳 */}
+        {step === 'upload' && (
+          <div className="space-y-6">
+            {/* 說明 */}
+            <div className="bg-blue-900/30 border border-blue-800/50 rounded-2xl p-4 space-y-2">
+              <div className="text-blue-300 font-semibold text-sm">📋 支援的欄位格式</div>
+              <div className="text-blue-200/70 text-xs space-y-1">
+                <div>· 班級（j;6 欄）、座號、學生姓名、家長姓名、家長聯繫電話</div>
+                <div>· 住家地址、搭車時段（上學/放學/上學, 放學）</div>
+                <div>· 上學地點、放學地點、放學時段（星期一～五）</div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 上傳 */}
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-          <div className="text-gray-400 text-xs font-semibold mb-3">📁 第二步：上傳檔案</div>
-          <label className="block w-full py-5 border-2 border-dashed border-gray-700 rounded-xl
-                            text-center cursor-pointer hover:border-blue-600 transition-colors">
-            <div className="text-3xl mb-2">📂</div>
-            <div className="text-gray-300 text-sm">點此選擇 CSV 或 Excel</div>
-            <div className="text-gray-600 text-xs mt-1">.csv / .xlsx / .xls</div>
-            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFile} />
-          </label>
-          {msg && !result && <div className="mt-3 text-center text-sm text-gray-300">{msg}</div>}
-        </div>
-
-        {/* 預覽 */}
-        {rows.length > 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
-            <div className="text-gray-400 text-xs font-semibold mb-3">預覽（前3筆）</div>
-            <div className="space-y-2">
-              {rows.slice(0, 3).map((r, i) => (
-                <div key={i} className="bg-gray-800 rounded-xl p-3 text-xs space-y-0.5">
-                  <div className="text-white font-medium">{r.student_name} · {r.class_name}</div>
-                  <div className="text-gray-400">家長：{r.parent_name} {r.parent_phone}</div>
-                  <div className="text-gray-500">校車：{r.bus_name} · 司機：{r.driver_name || '未填'}</div>
-                  {r.student_code && <div className="text-gray-600">學生證：{r.student_code}</div>}
-                </div>
-              ))}
-              {rows.length > 3 && <div className="text-gray-600 text-xs text-center">... 還有 {rows.length - 3} 筆</div>}
             </div>
-            <button onClick={handleImport} disabled={loading}
-              className="w-full mt-4 py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500
-                         text-white font-bold text-lg disabled:opacity-50">
-              {loading ? '匯入中...' : `🚀 開始匯入 ${rows.length} 筆`}
+
+            {/* 拖放區 */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              className={`border-2 border-dashed rounded-3xl p-12 text-center transition-all cursor-pointer
+                ${dragOver ? 'border-blue-500 bg-blue-900/20' : 'border-gray-700 hover:border-gray-600'}`}
+              onClick={() => document.getElementById('file-input')?.click()}
+            >
+              <div className="text-5xl mb-4">📂</div>
+              <div className="text-white font-semibold mb-2">拖放 Excel 檔案到這裡</div>
+              <div className="text-gray-500 text-sm">或點擊選擇檔案（.xlsx / .xls / .csv）</div>
+              <input
+                id="file-input" type="file" className="hidden"
+                accept=".xlsx,.xls,.csv"
+                onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); }}
+              />
+            </div>
+
+            {/* 格式提示 */}
+            <div className="bg-amber-900/20 border border-amber-800/40 rounded-2xl p-4">
+              <div className="text-amber-400 text-xs font-semibold mb-2">⚠️ 注意事項</div>
+              <div className="text-amber-300/70 text-xs space-y-1">
+                <div>· 系統會自動建立家長帳號（帳號=手機號碼，密碼=後4碼）</div>
+                <div>· 若停車點已設定對應校車，系統會自動分配；否則需手動指派</div>
+                <div>· 同名同家長的學生資料會自動更新，不會重複建立</div>
+                <div>· 匯入前請確認路線和停車點已在系統中設定完成</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: 預覽 */}
+        {step === 'preview' && (
+          <div className="space-y-4">
+            <div className="bg-gray-800 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <div className="text-white font-semibold">{fileName}</div>
+                <div className="text-gray-400 text-sm mt-0.5">共 {rows.length} 筆學生資料</div>
+              </div>
+              <button onClick={() => setStep('upload')} className="text-gray-500 text-sm hover:text-gray-300">重新選擇</button>
+            </div>
+
+            {/* 預覽表格 */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+                <div className="text-gray-300 text-sm font-semibold">預覽（前10筆）</div>
+                <div className="text-gray-500 text-xs">共 {rows.length} 筆</div>
+              </div>
+              <div className="overflow-x-auto">
+                {rows.slice(0, 10).map((row, i) => (
+                  <div key={i} className={`px-4 py-3 border-b border-gray-800/50 last:border-0 ${i % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800/30'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-semibold text-sm">{row.student_name}</span>
+                          {row.class_name && <span className="text-gray-500 text-xs">{row.class_name}</span>}
+                        </div>
+                        <div className="text-gray-500 text-xs mt-0.5">家長：{row.parent_name} · {row.parent_phone}</div>
+                        {row.pickup_location && (
+                          <div className="text-emerald-400/70 text-xs mt-1">↑ {row.pickup_location}</div>
+                        )}
+                        {row.dropoff_location && (
+                          <div className="text-purple-400/70 text-xs">↓ {row.dropoff_location}</div>
+                        )}
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-xs text-gray-500">{dirLabel[
+                          row.direction === '上學' ? 'morning' :
+                          row.direction === '放學' ? 'afternoon' : 'both'
+                        ] || row.direction}</div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {[
+                            row.dismissal_mon && `一${row.dismissal_mon}`,
+                            row.dismissal_tue && `二${row.dismissal_tue}`,
+                            row.dismissal_wed && `三${row.dismissal_wed}`,
+                            row.dismissal_thu && `四${row.dismissal_thu}`,
+                            row.dismissal_fri && `五${row.dismissal_fri}`,
+                          ].filter(Boolean).join(' ')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {rows.length > 10 && (
+                  <div className="px-4 py-3 text-center text-gray-600 text-xs">
+                    還有 {rows.length - 10} 筆...
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={handleImport}
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-4 rounded-2xl transition-all active:scale-95 text-base"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin">⏳</span> 匯入中...
+                </span>
+              ) : `確認匯入 ${rows.length} 筆學生資料`}
             </button>
           </div>
         )}
 
-        {/* 結果 */}
-        {result && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-            <div className="text-white font-bold text-lg mb-4 text-center">✅ 匯入完成</div>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-xl p-3 text-center">
-                <div className="text-emerald-400 font-bold text-2xl">{result.added}</div>
-                <div className="text-gray-500 text-xs">新增</div>
+        {/* Step 3: 結果 */}
+        {step === 'result' && result && (
+          <div className="space-y-4">
+            {/* 摘要卡 */}
+            <div className={`rounded-2xl p-5 border ${result.ok ? 'bg-emerald-900/20 border-emerald-800/40' : 'bg-red-900/20 border-red-800/40'}`}>
+              <div className={`text-lg font-bold mb-1 ${result.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                {result.ok ? '✅ 匯入完成' : '❌ 匯入失敗'}
               </div>
-              <div className="bg-blue-950/40 border border-blue-800/40 rounded-xl p-3 text-center">
-                <div className="text-blue-400 font-bold text-2xl">{result.updated}</div>
-                <div className="text-gray-500 text-xs">更新</div>
-              </div>
-              <div className="bg-red-950/40 border border-red-800/40 rounded-xl p-3 text-center">
-                <div className="text-red-400 font-bold text-2xl">{result.failed}</div>
-                <div className="text-gray-500 text-xs">失敗</div>
-              </div>
+              <div className="text-gray-300 text-sm">{result.summary}</div>
             </div>
-            <div className="bg-gray-800 rounded-xl p-3 text-xs text-gray-400 mb-3">
-              💡 家長帳號 = 手機號碼，密碼 = 手機後4碼<br/>
-              💡 司機帳號 = 手機號碼，密碼 = 手機後4碼
+
+            {/* 統計 */}
+            <div className="grid grid-cols-2 gap-3">
+              <StatItem emoji="✅" label="新增學生" value={result.added} color="emerald" />
+              <StatItem emoji="🔄" label="更新資料" value={result.updated} color="blue" />
+              <StatItem emoji="⚠️" label="待分配校車" value={result.nobus} color="amber" />
+              <StatItem emoji="❌" label="失敗" value={result.failed} color="red" />
             </div>
+
+            {/* 待分配校車的學生 */}
+            {result.unmatched?.length > 0 && (
+              <div className="bg-amber-900/20 border border-amber-800/40 rounded-2xl p-4">
+                <div className="text-amber-400 font-semibold text-sm mb-3">
+                  ⚠️ 以下 {result.unmatched.length} 位學生找不到對應校車，請手動指派
+                </div>
+                <div className="space-y-2">
+                  {result.unmatched.slice(0, 20).map((s: any, i: number) => (
+                    <div key={i} className="bg-amber-900/10 rounded-xl p-3">
+                      <div className="text-white text-sm font-semibold">{s.student_name}</div>
+                      {s.pickup_location && <div className="text-amber-300/60 text-xs">↑ {s.pickup_location}</div>}
+                      {s.dropoff_location && <div className="text-amber-300/60 text-xs">↓ {s.dropoff_location}</div>}
+                    </div>
+                  ))}
+                  {result.unmatched.length > 20 && (
+                    <div className="text-amber-400/60 text-xs text-center">還有 {result.unmatched.length - 20} 筆...</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 錯誤清單 */}
             {result.errors?.length > 0 && (
-              <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-3 mb-3">
-                <div className="text-red-400 text-xs font-semibold mb-2">失敗原因</div>
-                {result.errors.map((e: string, i: number) => (
-                  <div key={i} className="text-red-300 text-xs">• {e}</div>
+              <div className="bg-red-900/20 border border-red-800/40 rounded-2xl p-4">
+                <div className="text-red-400 font-semibold text-sm mb-2">❌ 錯誤明細</div>
+                {result.errors.slice(0, 10).map((e: string, i: number) => (
+                  <div key={i} className="text-red-300/70 text-xs py-1 border-b border-red-800/20 last:border-0">{e}</div>
                 ))}
               </div>
             )}
-            <button onClick={() => setResult(null)}
-              className="w-full py-3 rounded-xl bg-gray-800 text-gray-300 text-sm">
-              繼續匯入
-            </button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => { setStep('upload'); setResult(null); setRows([]); setFileName(''); }}
+                className="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-3 rounded-2xl transition-all">
+                再次匯入
+              </button>
+              <button onClick={() => router.push('/admin')}
+                className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-2xl transition-all">
+                回到後台
+              </button>
+            </div>
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function StatItem({ emoji, label, value, color }: { emoji: string; label: string; value: number; color: string }) {
+  const colors: Record<string, string> = {
+    emerald: 'border-emerald-800/40 bg-emerald-950/30 text-emerald-400',
+    blue:    'border-blue-800/40 bg-blue-950/30 text-blue-400',
+    amber:   'border-amber-800/40 bg-amber-950/30 text-amber-400',
+    red:     'border-red-800/40 bg-red-950/30 text-red-400',
+  };
+  return (
+    <div className={`rounded-2xl border p-4 ${colors[color]}`}>
+      <div className="text-2xl mb-1">{emoji}</div>
+      <div className="text-2xl font-bold">{value}</div>
+      <div className="text-xs opacity-70 mt-0.5">{label}</div>
     </div>
   );
 }
