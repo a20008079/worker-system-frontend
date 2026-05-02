@@ -36,6 +36,8 @@ export default function ParentMapView() {
       // 確保容器有尺寸
       const container = mapContainerRef.current;
       if (!container) return;
+      // 強制設定容器高度
+      container.style.height = container.offsetHeight > 0 ? container.offsetHeight + "px" : "300px";
 
       const m = L.map(container, {
         center: [24.9675, 121.2168],
@@ -223,7 +225,14 @@ export default function ParentMapView() {
       </div>
 
       {/* 地圖容器 */}
-      <div ref={mapContainerRef} style={{ flex: 1, minHeight: 0, position: 'relative', background: '#f0f0f0' }} />
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#e8f4f8', overflow: 'hidden' }}>
+        <div ref={mapContainerRef} style={{ position: 'absolute', inset: 0 }} />
+        {!mapReady && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 14 }}>
+            🗺️ 地圖載入中...
+          </div>
+        )}
+      </div>
 
       {/* 收合拉把 */}
       <div onClick={() => setPanelCollapsed(!panelCollapsed)}
