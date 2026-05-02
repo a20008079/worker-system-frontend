@@ -1,5 +1,4 @@
 'use client';
-// src/app/parent/page.tsx
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
