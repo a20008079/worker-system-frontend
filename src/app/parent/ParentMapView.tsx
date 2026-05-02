@@ -21,7 +21,6 @@ export default function ParentMapView() {
   const [showPath, setShowPath] = useState(false);
   const [progress, setProgress] = useState(0);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
   const [mapHeight, setMapHeight] = useState(300);
   const headerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -132,7 +131,7 @@ export default function ParentMapView() {
 
   // 更新地圖 marker
   useEffect(() => {
-    if (!mapReady || !mapInstanceRef.current || !data.length) return;
+    if (!mapInstanceRef.current || !data.length) return;
     const item = data[cur];
     if (!item?.location) {
       if (markerRef.current) { markerRef.current.remove(); markerRef.current = null; }
@@ -153,7 +152,7 @@ export default function ParentMapView() {
   }, [data, cur, mapReady]);
 
   const togglePath = async () => {
-    if (!data.length || !mapReady) return;
+    if (!data.length) return;
     const item = data[cur];
     if (showPath) { clearPath(); setShowPath(false); return; }
     try {
