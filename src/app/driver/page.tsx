@@ -137,7 +137,7 @@ export default function DriverPage() {
       {!isOnline && (
         <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800">
           <div className="text-gray-400 text-sm text-center">
-            點「上線出發」後，系統會自動<br />每 3 分鐘回傳校車位置給家長
+            點「上線出發」後，系統會自動<br />每 1 分鐘回傳校車位置給家長
           </div>
         </div>
       )}
