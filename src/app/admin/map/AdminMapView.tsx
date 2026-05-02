@@ -266,7 +266,7 @@ export default function AdminMapView() {
 
         {/* 手機版浮動按鈕 */}
         <button onClick={() => setDrawerOpen(true)} className="drawer-fab"
-          style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#3b82f6', border: 'none', color: '#fff', padding: '10px 22px', borderRadius: 24, fontSize: 14, fontWeight: 700, cursor: 'pointer', zIndex: 500, boxShadow: '0 4px 16px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Noto Sans TC', sans-serif" }}>
+          style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#3b82f6', border: 'none', color: '#fff', padding: '10px 22px', borderRadius: 24, fontSize: 14, fontWeight: 700, cursor: 'pointer', zIndex: 2000, boxShadow: '0 4px 16px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Noto Sans TC', sans-serif", WebkitTapHighlightColor: 'transparent' }}>
           🚌 校車列表
         </button>
 
