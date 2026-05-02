@@ -24,8 +24,9 @@ export default function ParentMapView() {
   const token = () => localStorage.getItem('token') || '';
   const H = () => ({ Authorization: `Bearer ${token()}` });
 
-  // 初始化 Leaflet（全部在 useEffect 內動態載入）
+  // 初始化 Leaflet（在資料載入後才執行）
   useEffect(() => {
+    if (loading || !data.length) return; // 等資料載入，地圖容器才存在
     let map: any = null;
 
     const init = async () => {
@@ -75,7 +76,7 @@ export default function ParentMapView() {
         markerRef.current = null;
       }
     };
-  }, []);
+  }, [loading, data.length]);
 
   // 面板收合時重算地圖
   useEffect(() => {
