@@ -39,8 +39,7 @@ export default function ParentMapView() {
       // 確保容器有尺寸
       const container = mapContainerRef.current;
       if (!container) return;
-      // 強制設定容器高度
-      container.style.height = container.offsetHeight > 0 ? container.offsetHeight + "px" : "300px";
+
 
       const m = L.map(container, {
         center: [24.9675, 121.2168],
@@ -56,10 +55,14 @@ export default function ParentMapView() {
       L.control.zoom({ position: 'topright' }).addTo(m);
       mapInstanceRef.current = m;
 
-      // 多次 invalidateSize 確保正確渲染
-      setTimeout(() => { m.invalidateSize(); setMapReady(true); }, 100);
-      setTimeout(() => m.invalidateSize(), 500);
-      setTimeout(() => m.invalidateSize(), 1000);
+      // 用 ResizeObserver 確保地圖在容器有尺寸時才 invalidateSize
+      const observer = new ResizeObserver(() => {
+        m.invalidateSize();
+      });
+      observer.observe(container);
+
+      setTimeout(() => { m.invalidateSize(); setMapReady(true); }, 300);
+      setTimeout(() => m.invalidateSize(), 800);
     };
 
     initMap();
