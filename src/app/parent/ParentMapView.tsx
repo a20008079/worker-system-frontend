@@ -242,18 +242,31 @@ export default function ParentMapView() {
             </button>
           )}
 
-          {/* 孩子上車狀態 */}
+          {/* 孩子上下車狀態 */}
           <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-2">我的孩子</div>
-          <div className={`flex items-center gap-3 border rounded-2xl px-4 py-3 transition-all ${boarded_at ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'}`}>
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 flex-shrink-0 ${boarded_at ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-200'}`}>
-              {boarded_at ? '✅' : '👦'}
+          <div className={`flex items-center gap-3 border rounded-2xl px-4 py-3 transition-all
+            ${item.alighted_at ? 'border-purple-300 bg-purple-50' : boarded_at ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'}`}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border-2 flex-shrink-0
+              ${item.alighted_at ? 'bg-purple-100 border-purple-300' : boarded_at ? 'bg-green-100 border-green-300' : 'bg-gray-100 border-gray-200'}`}>
+              {item.alighted_at ? '🏠' : boarded_at ? '✅' : '👦'}
             </div>
             <div className="flex-1">
               <div className="font-bold text-gray-900">{student.name}</div>
               <div className="text-gray-400 text-xs">{student.school_class}</div>
+              {item.alighted_at && (
+                <div className="text-purple-600 text-xs mt-0.5">
+                  下車時間：{new Date(item.alighted_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
+              {boarded_at && !item.alighted_at && (
+                <div className="text-green-600 text-xs mt-0.5">
+                  上車時間：{new Date(boarded_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              )}
             </div>
-            <div className={`text-xs font-semibold px-3 py-1 rounded-full ${boarded_at ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-              {boarded_at ? '已上車' : '等待中'}
+            <div className={`text-xs font-semibold px-3 py-1 rounded-full
+              ${item.alighted_at ? 'bg-purple-100 text-purple-700' : boarded_at ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+              {item.alighted_at ? '已下車' : boarded_at ? '在車上' : '等待中'}
             </div>
           </div>
 
