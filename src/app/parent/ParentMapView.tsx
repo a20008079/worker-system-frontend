@@ -220,8 +220,15 @@ export default function ParentMapView() {
           <div className="flex gap-2 overflow-x-auto pb-0.5" style={{ scrollbarWidth: 'none' }}>
             {data.map((d, i) => (
               <button key={i} onClick={() => setCur(i)}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${cur === i ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {d.student.name}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-semibold transition-all ${cur === i ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                <div className="flex flex-col items-center leading-tight">
+                  <span>{d.student.name}</span>
+                  <span className={`text-xs font-normal mt-0.5 ${cur === i ? 'text-blue-200' : 'text-gray-400'}`}>
+                    {d.student.school_direction === 'morning' ? '🚌上學' :
+                     d.student.school_direction === 'afternoon' ? '🏫放學' : '🚌上學/🏫放學'}
+                    {' · '}{d.bus?.bus_name || ''}
+                  </span>
+                </div>
               </button>
             ))}
           </div>
