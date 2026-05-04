@@ -169,7 +169,18 @@ export default function DriverPage() {
       {!isOnline && (
         <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800">
           <div className="text-gray-400 text-sm text-center">
-            點「上線出發」後，系統會自動<br />自動保持螢幕常亮，持續回傳位置給家長
+            點「上線出發」後，系統會自動<br />保持螢幕常亮，持續回傳位置給家長
+          </div>
+        </div>
+      )}
+      {/* 行駛中警告 */}
+      {isOnline && (
+        <div className="bg-amber-950/50 rounded-2xl p-4 border border-amber-600/40">
+          <div className="text-amber-400 text-sm text-center font-bold">
+            ⚠️ 行駛中請勿切換到其他 APP
+          </div>
+          <div className="text-amber-300/70 text-xs text-center mt-1">
+            切換後定位將停止，家長將無法看到位置
           </div>
         </div>
       )}
