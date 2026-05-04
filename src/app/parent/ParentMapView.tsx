@@ -197,7 +197,7 @@ export default function ParentMapView() {
   const item = data[cur];
   const { student, bus, location, is_online, boarded_at } = item;
   const lastSeen = location?.created_at
-    ? new Date(location.created_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    ? new Date(new Date(location.created_at).getTime() + 8*60*60*1000).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : null;
 
   return (
@@ -283,8 +283,8 @@ export default function ParentMapView() {
             <div className="flex-1">
               <div className="font-bold text-gray-900">{student.name}</div>
               <div className="text-gray-400 text-xs">{student.school_class}</div>
-              {item.alighted_at && <div className="text-purple-600 text-xs mt-0.5">下車：{new Date(item.alighted_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</div>}
-              {boarded_at && !item.alighted_at && <div className="text-green-600 text-xs mt-0.5">上車：{new Date(boarded_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</div>}
+              {item.alighted_at && <div className="text-purple-600 text-xs mt-0.5">下車：{new Date(new Date(item.alighted_at).getTime() + 8*60*60*1000).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</div>}
+              {boarded_at && !item.alighted_at && <div className="text-green-600 text-xs mt-0.5">上車：{new Date(new Date(boarded_at).getTime() + 8*60*60*1000).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</div>}
             </div>
             <div className={`text-xs font-semibold px-3 py-1 rounded-full ${item.alighted_at ? 'bg-purple-100 text-purple-700' : boarded_at ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
               {item.alighted_at ? '已下車' : boarded_at ? '在車上' : '等待中'}
