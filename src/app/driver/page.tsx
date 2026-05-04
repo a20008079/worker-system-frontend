@@ -14,6 +14,7 @@ export default function DriverPage() {
   const [elapsed, setElapsed] = useState('');
   const tickRef = useRef<NodeJS.Timeout | null>(null);
   const geoRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<any>(null);
 
   const token = () => localStorage.getItem('token');
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` });
@@ -44,6 +45,34 @@ export default function DriverPage() {
     tick();
     tickRef.current = setInterval(tick, 60000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
+  }, [session]);
+
+  // Wake Lock - 防止螢幕熄滅
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+          console.log('Wake Lock 已啟用，螢幕不會熄滅');
+        }
+      } catch (e) {
+        console.log('Wake Lock 不支援或被拒絕:', e);
+      }
+    };
+    if (session && !session.end_time) {
+      requestWakeLock();
+    } else {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    }
+    return () => {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+    };
   }, [session]);
 
   // GPS 持續追蹤（watchPosition）
@@ -140,7 +169,7 @@ export default function DriverPage() {
       {!isOnline && (
         <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800">
           <div className="text-gray-400 text-sm text-center">
-            點「上線出發」後，系統會自動<br />每 15 秒回傳校車位置給家長
+            點「上線出發」後，系統會自動<br />自動保持螢幕常亮，持續回傳位置給家長
           </div>
         </div>
       )}
