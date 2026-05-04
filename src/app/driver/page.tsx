@@ -36,7 +36,9 @@ export default function DriverPage() {
     if (tickRef.current) clearInterval(tickRef.current);
     if (!session?.start_time || session.end_time) { setElapsed(''); return; }
     const tick = () => {
-      const mins = Math.floor((Date.now() - new Date(session.start_time).getTime()) / 60000);
+      const startMs = new Date(new Date(session.start_time).getTime() + 8*60*60*1000).getTime();
+      const mins = Math.floor((Date.now() - startMs) / 60000);
+      if (mins < 0) { setElapsed('計算中...'); return; }
       setElapsed(`${Math.floor(mins / 60)}h ${mins % 60}m`);
     };
     tick();
@@ -59,7 +61,7 @@ export default function DriverPage() {
       }, undefined, { enableHighAccuracy: true });
     };
     sendLocation();
-    geoRef.current = setInterval(sendLocation, 60 * 1000);
+    geoRef.current = setInterval(sendLocation, 15 * 1000);
     return () => { if (geoRef.current) clearInterval(geoRef.current); };
   }, [session]);
 
@@ -137,7 +139,7 @@ export default function DriverPage() {
       {!isOnline && (
         <div className="bg-gray-900 rounded-2xl p-4 border border-gray-800">
           <div className="text-gray-400 text-sm text-center">
-            點「上線出發」後，系統會自動<br />每 1 分鐘回傳校車位置給家長
+            點「上線出發」後，系統會自動<br />每 15 秒回傳校車位置給家長
           </div>
         </div>
       )}
