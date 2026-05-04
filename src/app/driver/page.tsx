@@ -13,7 +13,7 @@ export default function DriverPage() {
   const [loading, setLoading] = useState(false);
   const [elapsed, setElapsed] = useState('');
   const tickRef = useRef<NodeJS.Timeout | null>(null);
-  const geoRef = useRef<NodeJS.Timeout | null>(null);
+  const geoRef = useRef<number | null>(null);
 
   const token = () => localStorage.getItem('token');
   const headers = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` });
@@ -61,8 +61,8 @@ export default function DriverPage() {
       },
       undefined,
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
-    );
-    geoRef.current = watchId ?? null;
+    ) ?? null;
+    geoRef.current = watchId;
     return () => { if (geoRef.current != null) { navigator.geolocation?.clearWatch(geoRef.current); geoRef.current = null; } };
   }, [session]);
 
