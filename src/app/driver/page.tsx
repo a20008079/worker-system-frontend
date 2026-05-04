@@ -46,23 +46,24 @@ export default function DriverPage() {
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
   }, [session]);
 
-  // GPS 自動回傳
+  // GPS 持續追蹤（watchPosition）
   useEffect(() => {
-    if (geoRef.current) clearInterval(geoRef.current);
+    if (geoRef.current != null) { navigator.geolocation?.clearWatch(geoRef.current); geoRef.current = null; }
     if (!session || session.end_time) return;
-    const sendLocation = () => {
-      navigator.geolocation?.getCurrentPosition(async (pos) => {
+    const watchId = navigator.geolocation?.watchPosition(
+      async (pos) => {
         try {
           await fetch(`${API}/api/location/update`, {
             method: 'POST', headers: headers(),
             body: JSON.stringify({ latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy }),
           });
         } catch {}
-      }, undefined, { enableHighAccuracy: true });
-    };
-    sendLocation();
-    geoRef.current = setInterval(sendLocation, 15 * 1000);
-    return () => { if (geoRef.current) clearInterval(geoRef.current); };
+      },
+      undefined,
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+    geoRef.current = watchId ?? null;
+    return () => { if (geoRef.current != null) { navigator.geolocation?.clearWatch(geoRef.current); geoRef.current = null; } };
   }, [session]);
 
   const handleOnline = async () => {
