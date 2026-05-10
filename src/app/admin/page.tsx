@@ -35,7 +35,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     const role = localStorage.getItem('role');
-    if (role !== 'admin') { router.push('/login'); return; }
+    if (role !== 'admin') { router.push('/admin/login'); return; }
     fetchAll();
   }, [fetchAll]);
 
@@ -49,7 +49,7 @@ export default function AdminPage() {
           <div className="text-white font-bold text-lg">🏫 管理後台</div>
           <div className="text-gray-500 text-xs">校車定位系統</div>
         </div>
-        <button onClick={() => { localStorage.clear(); router.push('/login'); }} className="text-gray-500 text-sm">登出</button>
+        <button onClick={() => { localStorage.clear(); router.push('/admin/login'); }} className="text-gray-500 text-sm">登出</button>
       </div>
 
       {/* 統計卡 */}
