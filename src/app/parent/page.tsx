@@ -10,7 +10,7 @@ export default function ParentPage() {
   const router = useRouter();
   useEffect(() => {
     const role = localStorage.getItem('role');
-    if (role !== 'parent') router.push('/login');
+    if (role !== 'parent') router.push('/parent/login');
   }, [router]);
   return <ParentMapView />;
 }
