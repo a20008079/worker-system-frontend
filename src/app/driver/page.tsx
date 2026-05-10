@@ -23,7 +23,7 @@ export default function DriverPage() {
   const fetchMe = useCallback(async () => {
     try {
       const r = await fetch(`${API}/api/driver/me`, { headers: headers() });
-      if (r.status === 401) { router.push('/login'); return; }
+      if (r.status === 401) { router.push('/driver/login'); return; }
       const d = await r.json();
       setDriver(d.driver);
       setSession(d.session);
@@ -186,7 +186,7 @@ export default function DriverPage() {
       )}
 
       {/* 登出 */}
-      <button onClick={() => { localStorage.clear(); router.push('/login'); }} className="text-gray-600 text-sm text-center mt-auto">
+      <button onClick={() => { localStorage.clear(); router.push('/driver/login'); }} className="text-gray-600 text-sm text-center mt-auto">
         登出
       </button>
 
