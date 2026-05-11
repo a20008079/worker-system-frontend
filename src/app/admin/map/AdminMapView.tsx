@@ -8,7 +8,7 @@ import 'leaflet/dist/leaflet.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const ROUTE_COLORS: Record<string, string> = {
-  中壢: '#3b82f6', 桃園: '#8b5cf6', 八德: '#10b981', 平鎮: '#f59e0b',
+  中壢: '#FF6B00', 桃園: '#8b5cf6', 八德: '#10b981', 平鎮: '#f59e0b',
   蘆竹: '#ec4899', 大園: '#06b6d4', 大溪: '#f97316', 龜山: '#84cc16', 觀音: '#a78bfa',
 };
 
@@ -16,7 +16,7 @@ function getColor(routeName: string) {
   for (const [k, v] of Object.entries(ROUTE_COLORS)) {
     if (routeName?.includes(k)) return v;
   }
-  return '#94a3b8';
+  return '#888888';
 }
 
 export default function AdminMapView() {
@@ -41,7 +41,7 @@ export default function AdminMapView() {
   useEffect(() => {
     if (mapRef.current || !mapElRef.current) return;
     const m = L.map(mapElRef.current, { center: [24.9675, 121.2168], zoom: 12, zoomControl: false });
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '© OpenStreetMap © CARTO',
     }).addTo(m);
     L.control.zoom({ position: 'topright' }).addTo(m);
@@ -63,7 +63,7 @@ export default function AdminMapView() {
     return L.divIcon({
       html: `<div style="position:relative">
         <div style="width:36px;height:36px;background:${bg}33;border:3px solid ${border};border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 2px 8px rgba(0,0,0,.4)">🚌</div>
-        ${isOnline ? `<div style="position:absolute;top:-3px;right:-3px;width:9px;height:9px;background:#10b981;border-radius:50%;border:2px solid #0a0f1e"></div>` : ''}
+        ${isOnline ? `<div style="position:absolute;top:-3px;right:-3px;width:9px;height:9px;background:#10b981;border-radius:50%;border:2px solid white"></div>` : ''}
       </div>`,
       className: '', iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -22],
     });
@@ -155,17 +155,17 @@ export default function AdminMapView() {
   const filteredBuses = routeFilter === 'all' ? buses : buses.filter((b) => b.route_name === routeFilter);
 
   return (
-    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: '#0a0f1e', color: '#e2e8f0', fontFamily: "'Noto Sans TC', sans-serif" }}>
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: '#F4F5F7', color: '#333333', fontFamily: "'Noto Sans TC', sans-serif" }}>
       {/* 頂部 Bar */}
-      <div style={{ background: '#111827', borderBottom: '1px solid #1e3a5f', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, zIndex: 1000 }}>
-        <div style={{ fontWeight: 900, fontSize: 16 }}>🚌 校車<span style={{ color: '#3b82f6' }}>即時</span>地圖</div>
+      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E8E8E8', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, zIndex: 1000 }}>
+        <div style={{ fontWeight: 900, fontSize: 16 }}>🚌 校車<span style={{ color: '#FF6B00' }}>即時</span>地圖</div>
         <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
           <Pill on={onlineCount > 0}><DotSpan on={onlineCount > 0} />{onlineCount} 在線</Pill>
           <Pill><DotSpan />{buses.length} 台</Pill>
           <Pill><span style={{ fontFamily: 'monospace', fontSize: 11 }}>{updateTime || '--:--'}</span></Pill>
         </div>
-        <button onClick={loadBuses} style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12 }}>🔄 重整</button>
-        <button onClick={() => router.push('/admin')} style={{ background: '#1a2332', border: '1px solid #1e3a5f', color: '#94a3b8', padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12 }}>← 後台</button>
+        <button onClick={loadBuses} style={{ background: '#FF6B00', border: 'none', color: '#fff', padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12 }}>🔄 重整</button>
+        <button onClick={() => router.push('/admin')} style={{ background: '#FFFFFF', border: '1px solid #E8E8E8', color: '#888888', padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12 }}>← 後台</button>
       </div>
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -179,21 +179,21 @@ export default function AdminMapView() {
         {/* 側邊欄 */}
         <div className={`bus-drawer${drawerOpen ? ' drawer-open' : ''}${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
           {/* 側邊欄標題列 */}
-          <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid #1e3a5f', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+          <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid #E8E8E8', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <div style={{ fontSize: 11, color: '#888888', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
               {!sidebarCollapsed && '校車列表'}
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
               {/* 桌機收合按鈕 */}
               <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 className="sidebar-toggle-btn"
-                style={{ background: '#1a2332', border: '1px solid #1e3a5f', color: '#94a3b8', fontSize: 14, cursor: 'pointer', borderRadius: 6, padding: '2px 8px', lineHeight: 1.4 }}
+                style={{ background: '#FFFFFF', border: '1px solid #E8E8E8', color: '#888888', fontSize: 14, cursor: 'pointer', borderRadius: 6, padding: '2px 8px', lineHeight: 1.4 }}
                 title={sidebarCollapsed ? '展開列表' : '收合列表'}>
                 {sidebarCollapsed ? '▶' : '◀'}
               </button>
               {/* 手機關閉按鈕 */}
               <button onClick={() => setDrawerOpen(false)} className="drawer-close-btn"
-                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}>×</button>
+                style={{ background: 'none', border: 'none', color: '#888888', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}>×</button>
             </div>
           </div>
 
@@ -204,7 +204,7 @@ export default function AdminMapView() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: 8, flexShrink: 0 }}>
                 {['all', ...routes].map((r) => (
                   <button key={r} onClick={() => setRouteFilter(r)}
-                    style={{ background: routeFilter === r ? '#3b82f6' : '#1a2332', border: `1px solid ${routeFilter === r ? '#3b82f6' : '#1e3a5f'}`, color: routeFilter === r ? '#fff' : '#94a3b8', padding: '3px 9px', borderRadius: 10, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    style={{ background: routeFilter === r ? '#FF6B00' : '#FFFFFF', border: `1px solid ${routeFilter === r ? '#FF6B00' : '#E8E8E8'}`, color: routeFilter === r ? '#fff' : '#888888', padding: '3px 9px', borderRadius: 10, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     {r === 'all' ? '全部' : r}
                   </button>
                 ))}
@@ -219,19 +219,19 @@ export default function AdminMapView() {
                   const isSel = selBus?.id === bus.id;
                   return (
                     <div key={bus.id} onClick={() => selectBus(bus.id)}
-                      style={{ background: isSel ? 'rgba(59,130,246,.12)' : '#1a2332', border: `1px solid ${isSel ? '#3b82f6' : '#1e3a5f'}`, borderRadius: 9, padding: '8px 10px', marginBottom: 4, cursor: 'pointer' }}>
+                      style={{ background: isSel ? 'rgba(59,130,246,.12)' : '#FFFFFF', border: `1px solid ${isSel ? '#FF6B00' : '#E8E8E8'}`, borderRadius: 9, padding: '8px 10px', marginBottom: 4, cursor: 'pointer' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: isOn ? '#10b981' : '#475569', flexShrink: 0, boxShadow: isOn ? '0 0 5px #10b981' : 'none' }} />
-                        <div style={{ fontWeight: 700, fontSize: 13, flex: 1, color: isOn ? color : '#e2e8f0' }}>{bus.bus_name}</div>
-                        <div style={{ fontSize: 10, background: '#0a0f1e', padding: '1px 6px', borderRadius: 8, color: '#94a3b8', border: '1px solid #1e3a5f' }}>{bus.route_name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, flex: 1, color: isOn ? color : '#333333' }}>{bus.bus_name}</div>
+                        <div style={{ fontSize: 10, background: '#F4F5F7', padding: '1px 6px', borderRadius: 8, color: '#888888', border: '1px solid #E8E8E8' }}>{bus.route_name}</div>
                       </div>
-                      <div style={{ display: 'flex', gap: 8, fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>
+                      <div style={{ display: 'flex', gap: 8, fontSize: 11, color: '#888888', fontFamily: 'monospace' }}>
                         <span style={{ color: isOn ? '#10b981' : undefined }}>{bus.boarded_count || 0}/{bus.student_count || 0}人</span>
                         <span>{bus.latitude ? '📡有定位' : '📵無定位'}</span>
                         {isOn && <span style={{ color: '#10b981' }}>●行駛中</span>}
                       </div>
                       {bus.student_count > 0 && (
-                        <div style={{ marginTop: 4, height: 2, background: '#1e3a5f', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ marginTop: 4, height: 2, background: '#E8E8E8', borderRadius: 2, overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${pct}%`, background: isOn ? '#10b981' : '#475569', borderRadius: 2, transition: 'width .5s' }} />
                         </div>
                       )}
@@ -252,7 +252,7 @@ export default function AdminMapView() {
                 return (
                   <div key={bus.id} onClick={() => selectBus(bus.id)}
                     title={bus.bus_name}
-                    style={{ background: isSel ? 'rgba(59,130,246,.15)' : 'transparent', borderLeft: isSel ? `3px solid #3b82f6` : '3px solid transparent', padding: '8px 0', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    style={{ background: isSel ? 'rgba(59,130,246,.15)' : 'transparent', borderLeft: isSel ? `3px solid #FF6B00` : '3px solid transparent', padding: '8px 0', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: isOn ? color : '#475569', boxShadow: isOn ? `0 0 5px ${color}` : 'none' }} />
                   </div>
                 );
@@ -266,29 +266,29 @@ export default function AdminMapView() {
 
         {/* 手機版浮動按鈕 */}
         <button onClick={() => setDrawerOpen(true)} className="drawer-fab"
-          style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#3b82f6', border: 'none', color: '#fff', padding: '10px 22px', borderRadius: 24, fontSize: 14, fontWeight: 700, cursor: 'pointer', zIndex: 2000, boxShadow: '0 4px 16px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Noto Sans TC', sans-serif", WebkitTapHighlightColor: 'transparent' }}>
+          style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: '#FF6B00', border: 'none', color: '#fff', padding: '10px 22px', borderRadius: 24, fontSize: 14, fontWeight: 700, cursor: 'pointer', zIndex: 2000, boxShadow: '0 4px 16px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Noto Sans TC', sans-serif", WebkitTapHighlightColor: 'transparent' }}>
           🚌 校車列表
         </button>
 
         {/* 詳情面板 */}
         {selBus && (
-          <div style={{ position: 'absolute', bottom: 16, right: 16, background: '#111827', border: '1px solid #1e3a5f', borderRadius: 12, padding: 14, width: 260, zIndex: 999 }}>
+          <div style={{ position: 'absolute', bottom: 16, right: 16, background: '#FFFFFF', border: '1px solid #E8E8E8', borderRadius: 12, padding: 14, width: 260, zIndex: 999 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{selBus.bus_name}</span>
-              <span style={{ cursor: 'pointer', color: '#94a3b8', fontSize: 18 }} onClick={() => { setSelBus(null); clearPath(); setShowPath(false); }}>×</span>
+              <span style={{ cursor: 'pointer', color: '#888888', fontSize: 18 }} onClick={() => { setSelBus(null); clearPath(); setShowPath(false); }}>×</span>
             </div>
             {[
               { label: '路線', value: selBus.route_name || '-' },
               { label: '司機', value: selBus.driver_name || '未指派' },
-              { label: '狀態', value: selBus.session_id ? '🟢 行駛中' : '⚫ 未出發', color: selBus.session_id ? '#10b981' : '#94a3b8' },
+              { label: '狀態', value: selBus.session_id ? '🟢 行駛中' : '⚫ 未出發', color: selBus.session_id ? '#10b981' : '#888888' },
               { label: '學生', value: `${selBus.boarded_count || 0} / ${selBus.student_count || 0} 人` },
               { label: '更新', value: selBus.last_seen ? new Date(selBus.last_seen).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-' },
             ].map(({ label, value, color }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 0', borderBottom: '1px solid #1e3a5f', color: '#94a3b8' }}>
-                <span>{label}</span><strong style={{ color: color || '#e2e8f0' }}>{value}</strong>
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 0', borderBottom: '1px solid #E8E8E8', color: '#888888' }}>
+                <span>{label}</span><strong style={{ color: color || '#333333' }}>{value}</strong>
               </div>
             ))}
-            <button onClick={togglePath} style={{ width: '100%', marginTop: 10, background: showPath ? '#ef4444' : '#3b82f6', border: 'none', color: '#fff', padding: 7, borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
+            <button onClick={togglePath} style={{ width: '100%', marginTop: 10, background: showPath ? '#ef4444' : '#FF6B00', border: 'none', color: '#fff', padding: 7, borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
               {showPath ? '🗑️ 清除路徑' : '📍 今日行駛路徑'}
             </button>
           </div>
@@ -303,8 +303,8 @@ export default function AdminMapView() {
             z-index: auto !important;
             display: flex !important;
             flex-direction: column !important;
-            background: #111827 !important;
-            border-right: 1px solid #1e3a5f !important;
+            background: #FFFFFF !important;
+            border-right: 1px solid #E8E8E8 !important;
             flex-shrink: 0 !important;
             overflow: hidden !important;
             width: 280px !important;
@@ -327,7 +327,7 @@ export default function AdminMapView() {
             z-index: 1000 !important;
             transform: translateX(-100%) !important;
             display: flex !important; flex-direction: column !important;
-            background: #111827 !important;
+            background: #FFFFFF !important;
             transition: transform 0.3s ease !important;
             overflow: hidden !important;
           }
@@ -342,7 +342,7 @@ export default function AdminMapView() {
 
 function Pill({ children, on }: { children: React.ReactNode; on?: boolean }) {
   return (
-    <div style={{ background: '#1a2332', border: '1px solid #1e3a5f', borderRadius: 16, padding: '3px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'monospace' }}>
+    <div style={{ background: '#FFFFFF', border: '1px solid #E8E8E8', borderRadius: 16, padding: '3px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'monospace' }}>
       {children}
     </div>
   );
