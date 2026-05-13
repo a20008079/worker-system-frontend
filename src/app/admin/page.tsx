@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 // src/app/admin/page.tsx — 管理員後台（含座位管理 + 放學時段）
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -111,6 +111,17 @@ export default function AdminPage() {
             <div className="text-2xl mb-2">📋</div>
             <div className="text-white font-bold text-sm">歷史紀錄</div>
             <div className="text-gray-400 text-xs mt-0.5">出勤查詢 · 學生紀錄 · 統計</div>
+          </button>
+          <button onClick={() => router.push('/admin/bus')}
+            className="bg-gradient-to-br from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800 active:scale-95 transition-all rounded-2xl p-4 text-left border border-blue-600/50 col-span-2 mb-3">
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">🚌</div>
+              <div className="flex-1">
+                <div className="text-white font-bold text-sm">校車系統</div>
+                <div className="text-blue-200 text-xs mt-0.5">學生 · 路線 · 上下學時段 · 匯出 Excel</div>
+              </div>
+              <div className="text-blue-300 text-lg">›</div>
+            </div>
           </button>
           <button onClick={() => setShowRouteManager(true)}
             className="bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 text-left border border-gray-700">
