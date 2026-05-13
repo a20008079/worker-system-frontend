@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 // src/app/admin/bus/page.tsx
 // v4 階段 1 — 校車系統主頁
 // 對齊 admin 主頁深色配色 (bg-gray-950/900/800),不額外引入 RumiGo 玻璃擬態
@@ -316,7 +316,7 @@ function WeekDayCell({ ctx, direction, field, onSaved }: WeekDayCellProps) {
       let newVal: WeekValue;
       if (direction === 'morning') {
         // 上學:不搭 ↔ 搭(搭時存 '1620' 當佔位值,SELECT 會顯示為空字串)
-        newVal = notRide ? '1620' : null;
+        newVal = (notRide ? null : '不搭') as WeekValue;
       } else {
         // 放學:1620 → 1800 → 不搭 → 1620 …
         newVal = value === '1620' ? '1800'
