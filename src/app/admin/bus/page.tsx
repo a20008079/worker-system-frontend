@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 // src/app/admin/bus/page.tsx
 // v4 階段 1 — 校車系統主頁
 // 對齊 admin 主頁深色配色 (bg-gray-950/900/800),不額外引入 RumiGo 玻璃擬態
@@ -43,7 +43,17 @@ export default function BusAdminPage() {
             <div className="text-gray-500 text-xs">學生 / 路線 / 時段管理</div>
           </div>
         </div>
-        <ExportButton direction={direction} />
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.push('/admin/bus/buses')}
+            className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm font-bold rounded-xl border border-gray-700 active:scale-95 transition-all">
+            🛣️ 路線屬性
+          </button>
+          <button onClick={() => router.push('/admin/bus/audit')}
+            className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm font-bold rounded-xl border border-gray-700 active:scale-95 transition-all">
+            📋 修改紀錄
+          </button>
+          <ExportButton direction={direction} />
+        </div>
       </div>
 
       {/* Tabs */}
@@ -105,8 +115,7 @@ interface BusTableProps {
 }
 function BusTable({ direction }: BusTableProps) {
   const [rows, setRows] = useState<BusStudentRow[]>([]);
-  // buses (下拉用) — 階段 2 才會用到,先取著備用
-  const [, setBuses] = useState<BusInfo[]>([]);
+  const [buses, setBuses] = useState<BusInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<{ studentId: number; field: string } | null>(null);
 
@@ -169,7 +178,11 @@ function BusTable({ direction }: BusTableProps) {
     });
 
     base.push(
-      { id: '路線', header: '路線', accessorFn: (r) => r.路線, size: 110 },
+      {
+        id: '路線', header: '路線', accessorFn: (r) => r.路線, size: 130,
+        cell: (ctx) => <RouteSelectCell ctx={ctx} buses={buses} onSaved={reload}
+          editing={editing} setEditing={setEditing} />,
+      },
       { id: '交通公司', header: '交通公司', accessorFn: (r) => r.交通公司, size: 80 },
       { id: '司機/電話', header: '司機/電話', accessorFn: (r) => r['司機/電話'], size: 160 },
       { id: '車號', header: '車號', accessorFn: (r) => r.車號, size: 100 },
@@ -316,7 +329,7 @@ function WeekDayCell({ ctx, direction, field, onSaved }: WeekDayCellProps) {
       let newVal: WeekValue;
       if (direction === 'morning') {
         // 上學:不搭 ↔ 搭(搭時存 '1620' 當佔位值,SELECT 會顯示為空字串)
-        newVal = (notRide ? null : '不搭') as WeekValue;
+        newVal = notRide ? '1620' : null;
       } else {
         // 放學:1620 → 1800 → 不搭 → 1620 …
         newVal = value === '1620' ? '1800'
@@ -505,3 +518,61 @@ function getPinningStyles(
     background: bg,
   };
 }
+
+// ============================================================
+// RouteSelectCell — 路線下拉(改學生 bus_id)
+// ============================================================
+interface RouteSelectCellProps {
+  ctx: any;
+  buses: BusInfo[];
+  editing: { studentId: number; field: string } | null;
+  setEditing: (v: { studentId: number; field: string } | null) => void;
+  onSaved: () => void | Promise<void>;
+}
+function RouteSelectCell({ ctx, buses, editing, setEditing, onSaved }: RouteSelectCellProps) {
+  const studentId = ctx.row.original._student_id as number;
+  const currentBusId = ctx.row.original._bus_id as number;
+  const value = ctx.getValue() as string | null;
+  const isEditing = editing?.studentId === studentId && editing?.field === 'bus_id';
+  const [saving, setSaving] = useState(false);
+
+  if (isEditing) {
+    return (
+      <select
+        autoFocus
+        defaultValue={currentBusId}
+        disabled={saving}
+        onBlur={() => setEditing(null)}
+        onChange={async (e) => {
+          const newBusId = parseInt(e.target.value, 10);
+          if (newBusId === currentBusId) { setEditing(null); return; }
+          setSaving(true);
+          try {
+            await updateStudent(studentId, { bus_id: newBusId });
+            setEditing(null);
+            await onSaved();
+          } catch (err) {
+            alert('儲存失敗:' + (err as Error).message);
+          } finally {
+            setSaving(false);
+          }
+        }}
+        className="w-full bg-gray-800 border border-blue-600 rounded text-gray-100 text-xs px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        {buses.map((b) => (
+          <option key={b.id} value={b.id}>{b.bus_name}</option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing({ studentId, field: 'bus_id' })}
+      className="w-full text-left px-1.5 py-0.5 rounded text-gray-200 hover:bg-blue-900/30 transition-colors"
+    >
+      {value || <span className="text-gray-600">—</span>}
+    </button>
+  );
+}
+
