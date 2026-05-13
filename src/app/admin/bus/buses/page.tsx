@@ -1,6 +1,7 @@
 'use client';
 // src/app/admin/bus/buses/page.tsx
 // v4 階段 2 — 路線屬性編輯
+// 階段 3a — 加 skip_1620 (1620 不跑) / van_only (只准廂型車) 兩欄 checkbox
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -33,6 +34,27 @@ export default function BusBusesPage() {
     }
   };
 
+  // 即時切換旗標 (skip_1620 / van_only) — 樂觀更新
+  const toggleFlag = async (
+    bus: BusInfo,
+    flag: 'skip_1620' | 'van_only',
+    value: boolean
+  ) => {
+    // 先更新 UI
+    setBuses((prev) =>
+      prev.map((b) => (b.id === bus.id ? { ...b, [flag]: value } : b))
+    );
+    try {
+      await updateBus(bus.id, { [flag]: value } as Partial<BusInfo>);
+    } catch (e) {
+      // 失敗 → 回復
+      setBuses((prev) =>
+        prev.map((b) => (b.id === bus.id ? { ...b, [flag]: !value } : b))
+      );
+      alert('更新失敗:' + (e as Error).message);
+    }
+  };
+
   return (
     <div className="min-h-dvh bg-gray-950">
       {/* Header */}
@@ -42,7 +64,7 @@ export default function BusBusesPage() {
             className="text-gray-400 hover:text-white text-sm">‹ 返回</button>
           <div>
             <div className="text-white font-bold text-lg">🛣️ 路線屬性</div>
-            <div className="text-gray-500 text-xs">上車時間 · 交通公司 · 司機 · 車號 · 帳密</div>
+            <div className="text-gray-500 text-xs">上車時間 · 車輛 · 司機 · 排車旗標</div>
           </div>
         </div>
         <div className="text-gray-500 text-xs">共 {buses.length} 條路線</div>
@@ -57,18 +79,26 @@ export default function BusBusesPage() {
         </div>
       ) : (
         <div className="px-4 py-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-800 text-gray-300 text-xs">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold">路線</th>
-                  <th className="px-4 py-3 text-left font-semibold">上車時間</th>
-                  <th className="px-4 py-3 text-left font-semibold">交通公司</th>
-                  <th className="px-4 py-3 text-left font-semibold">司機/電話</th>
-                  <th className="px-4 py-3 text-left font-semibold">車號</th>
-                  <th className="px-4 py-3 text-left font-semibold">帳號</th>
-                  <th className="px-4 py-3 text-left font-semibold">密碼</th>
-                  <th className="px-4 py-3 text-center font-semibold">操作</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">路線</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">上車時間</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">交通公司</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">司機/電話</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">車號</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">帳號</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">密碼</th>
+                  <th className="px-3 py-3 text-center font-semibold whitespace-nowrap"
+                      title="勾選後排車引擎不會在 1620 時段排這條路線(例如太遠的點)">
+                    1620<br/>不跑
+                  </th>
+                  <th className="px-3 py-3 text-center font-semibold whitespace-nowrap"
+                      title="勾選後排車引擎不會分中巴給這條路線(例如巷子太小)">
+                    只准<br/>廂型車
+                  </th>
+                  <th className="px-4 py-3 text-center font-semibold whitespace-nowrap">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -81,6 +111,22 @@ export default function BusBusesPage() {
                     <Cell value={b.plate_number} />
                     <Cell value={b.account_id} />
                     <Cell value={b.account_pass} mask />
+                    <td className="px-3 py-2.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={!!b.skip_1620}
+                        onChange={(e) => toggleFlag(b, 'skip_1620', e.target.checked)}
+                        className="w-4 h-4 accent-blue-600 cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-3 py-2.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={!!b.van_only}
+                        onChange={(e) => toggleFlag(b, 'van_only', e.target.checked)}
+                        className="w-4 h-4 accent-blue-600 cursor-pointer"
+                      />
+                    </td>
                     <td className="px-4 py-2.5 text-center">
                       <button onClick={() => setEditing(b)}
                         className="bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold rounded-lg px-3 py-1.5 active:scale-95 transition-all">
@@ -91,6 +137,12 @@ export default function BusBusesPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* 旗標說明 */}
+          <div className="mt-3 text-xs text-gray-500 px-1 space-y-1">
+            <div>💡 <span className="text-gray-400">1620 不跑</span>:1620 時段不排這條路線(例如太遠的點來不及回校跑 1800)</div>
+            <div>💡 <span className="text-gray-400">只准廂型車</span>:這條路線只能用廂型車(例如巷子太小中巴進不去)</div>
           </div>
         </div>
       )}

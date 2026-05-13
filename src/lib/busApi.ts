@@ -2,9 +2,12 @@
 // v4 階段 1 — 校車系統 API 封裝
 // 對齊既有風格:用原生 fetch + localStorage('token') + Bearer
 // 跟現有 admin/page.tsx, ParentMapView.tsx 完全一致
+//
+// 階段 3a 新增:fetchConfig / updateConfig
 
 import type {
   BusStudentRow, BusInfo, AuditLogRow, UpdateStudentPayload, BusDirection,
+  SystemConfigRow,
 } from '@/types/bus';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -75,4 +78,26 @@ export async function fetchAuditLog(limit = 100): Promise<AuditLogRow[]> {
   const r = await fetch(`${API}/api/admin/bus/audit?limit=${limit}`, { headers: H() });
   const d = await handleResponse<{ rows: AuditLogRow[] }>(r);
   return d.rows;
+}
+
+// ============================================================
+// 階段 3a 新增:系統設定 (車隊參數)
+// ============================================================
+
+export async function fetchConfig(): Promise<SystemConfigRow[]> {
+  const r = await fetch(`${API}/api/admin/config`, { headers: H() });
+  const d = await handleResponse<{ configs: SystemConfigRow[] }>(r);
+  return d.configs;
+}
+
+export async function updateConfig(
+  configs: Array<{ key: string; value: string }>
+): Promise<SystemConfigRow[]> {
+  const r = await fetch(`${API}/api/admin/config`, {
+    method: 'PUT',
+    headers: H(),
+    body: JSON.stringify({ configs }),
+  });
+  const d = await handleResponse<{ configs: SystemConfigRow[]; updated: number }>(r);
+  return d.configs;
 }
