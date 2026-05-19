@@ -182,6 +182,20 @@ export default function AdminPage() {
         </button>
       </div>
 
+      {/* 站牌管理 */}
+      <div className="px-4 mb-4">
+        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">地圖 · 站牌</div>
+        <button onClick={() => router.push('/admin/stops')}
+          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700">
+          <div className="text-3xl">📍</div>
+          <div className="text-left">
+            <div className="text-white font-bold text-sm">站牌管理</div>
+            <div className="text-gray-400 text-xs mt-0.5">逐條路線設定上下車點 · 點地圖選座標</div>
+          </div>
+          <div className="ml-auto text-gray-500 text-lg">›</div>
+        </button>
+      </div>
+
       {/* Tab */}
       <div className="flex gap-2 px-4 mb-4">
         {[

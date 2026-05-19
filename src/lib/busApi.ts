@@ -1,13 +1,11 @@
 // src/lib/busApi.ts
 // v4 階段 1 — 校車系統 API 封裝
-// 對齊既有風格:用原生 fetch + localStorage('token') + Bearer
-// 跟現有 admin/page.tsx, ParentMapView.tsx 完全一致
-//
-// 階段 3a 新增:fetchConfig / updateConfig
+// 階段 3a — 加 fetchConfig / updateConfig
+// 階段 3b — 加站牌管理 API (stops)
 
 import type {
   BusStudentRow, BusInfo, AuditLogRow, UpdateStudentPayload, BusDirection,
-  SystemConfigRow,
+  SystemConfigRow, BusStop, ImportStopsResult,
 } from '@/types/bus';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -20,7 +18,6 @@ const H = () => ({
 
 async function handleResponse<T>(r: Response): Promise<T> {
   if (r.status === 401) {
-    // session 失效,跳回登入頁
     if (typeof window !== 'undefined') {
       localStorage.clear();
       window.location.href = '/admin/login';
@@ -81,7 +78,7 @@ export async function fetchAuditLog(limit = 100): Promise<AuditLogRow[]> {
 }
 
 // ============================================================
-// 階段 3a 新增:系統設定 (車隊參數)
+// 階段 3a:系統設定
 // ============================================================
 
 export async function fetchConfig(): Promise<SystemConfigRow[]> {
@@ -100,4 +97,66 @@ export async function updateConfig(
   });
   const d = await handleResponse<{ configs: SystemConfigRow[]; updated: number }>(r);
   return d.configs;
+}
+
+// ============================================================
+// 階段 3b:站牌管理
+// ============================================================
+
+export async function fetchStops(busId: number): Promise<BusStop[]> {
+  const r = await fetch(`${API}/api/admin/buses/${busId}/stops`, { headers: H() });
+  const d = await handleResponse<{ stops: BusStop[] }>(r);
+  return d.stops;
+}
+
+export async function createStop(
+  busId: number,
+  payload: Partial<Omit<BusStop, 'id' | 'bus_id'>> & { stop_name: string }
+): Promise<number> {
+  const r = await fetch(`${API}/api/admin/buses/${busId}/stops`, {
+    method: 'POST',
+    headers: H(),
+    body: JSON.stringify(payload),
+  });
+  const d = await handleResponse<{ ok: boolean; id: number }>(r);
+  return d.id;
+}
+
+export async function updateStop(
+  stopId: number,
+  payload: Partial<Omit<BusStop, 'id' | 'bus_id'>>
+): Promise<BusStop> {
+  const r = await fetch(`${API}/api/admin/stops/${stopId}`, {
+    method: 'PUT',
+    headers: H(),
+    body: JSON.stringify(payload),
+  });
+  const d = await handleResponse<{ stop: BusStop }>(r);
+  return d.stop;
+}
+
+export async function deleteStop(stopId: number): Promise<void> {
+  const r = await fetch(`${API}/api/admin/stops/${stopId}`, {
+    method: 'DELETE',
+    headers: H(),
+  });
+  await handleResponse<{ ok: boolean }>(r);
+}
+
+export async function reorderStops(busId: number, orderedIds: number[]): Promise<void> {
+  const r = await fetch(`${API}/api/admin/buses/${busId}/stops/reorder`, {
+    method: 'PUT',
+    headers: H(),
+    body: JSON.stringify({ order: orderedIds }),
+  });
+  await handleResponse<{ ok: boolean }>(r);
+}
+
+export async function importStopsFromStudents(busId: number): Promise<ImportStopsResult> {
+  const r = await fetch(`${API}/api/admin/buses/${busId}/stops/import-from-students`, {
+    method: 'POST',
+    headers: H(),
+    body: JSON.stringify({}),
+  });
+  return await handleResponse<ImportStopsResult>(r);
 }
