@@ -440,12 +440,47 @@ function StopEditModal({ stop, pickedLatLng, onClose, onSave, saving }: ModalPro
   const [name, setName] = useState(stop?.stop_name || '');
   const [address, setAddress] = useState(stop?.address || '');
   const [pickupTime, setPickupTime] = useState(stop?.pickup_time || '');
-  // 座標:優先用 picked,其次用 stop 既有,沒有就空
-  const lat = pickedLatLng?.[0] ?? stop?.latitude ?? null;
-  const lng = pickedLatLng?.[1] ?? stop?.longitude ?? null;
+  // 座標:支援兩種填法 - 手動輸入 / 點地圖
+  const [latStr, setLatStr] = useState<string>(
+    stop?.latitude != null ? String(stop.latitude) : ''
+  );
+  const [lngStr, setLngStr] = useState<string>(
+    stop?.longitude != null ? String(stop.longitude) : ''
+  );
+
+  // 當用戶在地圖點位置時,自動填入兩個 input
+  useEffect(() => {
+    if (pickedLatLng) {
+      setLatStr(String(pickedLatLng[0]));
+      setLngStr(String(pickedLatLng[1]));
+    }
+  }, [pickedLatLng]);
 
   const handleSubmit = () => {
     if (!name.trim()) { alert('請輸入站牌名稱'); return; }
+    // 驗證經緯度:兩個都空 = NULL (未設定);一空一有 = 錯誤;兩個都有 = 必須合法數字
+    const latTrim = latStr.trim();
+    const lngTrim = lngStr.trim();
+    let lat: number | null = null;
+    let lng: number | null = null;
+    if (latTrim === '' && lngTrim === '') {
+      lat = null; lng = null;
+    } else if (latTrim === '' || lngTrim === '') {
+      alert('經緯度必須兩個都填,或兩個都留空');
+      return;
+    } else {
+      const latN = Number(latTrim);
+      const lngN = Number(lngTrim);
+      if (!Number.isFinite(latN) || latN < -90 || latN > 90) {
+        alert('緯度必須是 -90 到 90 的數字');
+        return;
+      }
+      if (!Number.isFinite(lngN) || lngN < -180 || lngN > 180) {
+        alert('經度必須是 -180 到 180 的數字');
+        return;
+      }
+      lat = latN; lng = lngN;
+    }
     onSave({
       stop_name: name.trim(),
       latitude: lat,
@@ -477,16 +512,24 @@ function StopEditModal({ stop, pickedLatLng, onClose, onSave, saving }: ModalPro
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-400 mb-1">座標</label>
-            {lat != null && lng != null ? (
-              <div className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-emerald-400">
-                📍 {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
-              </div>
-            ) : (
-              <div className="bg-amber-950 border border-amber-700 rounded-lg px-3 py-2 text-sm text-amber-400">
-                ⚠️ 尚未設定 — 請在地圖上點選位置
-              </div>
-            )}
+            <label className="block text-xs font-bold text-gray-400 mb-1">座標(點地圖或手動輸入)</label>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={latStr}
+                onChange={(e) => setLatStr(e.target.value)}
+                placeholder="緯度 24.9658"
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input
+                type="text"
+                value={lngStr}
+                onChange={(e) => setLngStr(e.target.value)}
+                placeholder="經度 121.2246"
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            </div>
+            <div className="text-xs text-gray-500 mt-1.5">
+              可在後方地圖上點選 · 或從 Google Maps 複製座標貼上 · 留空兩個 = 暫未設定
+            </div>
           </div>
 
           <div>
