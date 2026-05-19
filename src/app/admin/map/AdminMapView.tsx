@@ -113,11 +113,11 @@ export default function AdminMapView() {
     setShowPath(false);
     clearPath();
     setDrawerOpen(false);
-    // 棝�選到車後，抓該條路線的站牌畫在地圖上
+    // 選到車後,抓該條路線的站牌畫在地圖上
     loadAndDrawStops(busId);
   }
 
-  // 印桦某條路線的站牌 marker (紫色)
+  // 階段 3b Step 2 — 印該條路線的站牌 marker (紫色)
   async function loadAndDrawStops(busId: number) {
     if (!mapRef.current) return;
     clearStops();
@@ -141,13 +141,13 @@ export default function AdminMapView() {
           iconAnchor: [15, 30],
         });
         L.marker([Number(s.latitude), Number(s.longitude)], { icon })
-          .bindPopup(`<b>${s.stop_name}</b><br>順序：${orderLabel}${s.pickup_time ? '<br>時間：' + s.pickup_time : ''}`)
+          .bindPopup(`<b>${s.stop_name}</b><br>順序:${orderLabel}${s.pickup_time ? '<br>時間:' + s.pickup_time : ''}`)
           .addTo(lg);
       });
       lg.addTo(mapRef.current);
       stopsLayerRef.current = lg;
     } catch (e) {
-      // 沈默失敗 - 站牌是附加功能，不影響主榴
+      // 靜默失敗 - 站牌是附加功能,不影響主流程
     }
   }
 

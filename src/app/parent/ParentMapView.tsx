@@ -153,7 +153,7 @@ export default function ParentMapView() {
     updateMap();
   }, [data, cur]);
 
-  // 階段 3b Step 2 — 站牌 marker (隨拈到孩子那條車的站牌)
+  // 階段 3b Step 2 — 站牌 marker (隨著到孩子那條車的站牌)
   useEffect(() => {
     if (!data.length) return;
     const item = data[cur];
@@ -191,13 +191,13 @@ export default function ParentMapView() {
             iconAnchor: [14, 28],
           });
           L.marker([Number(s.latitude), Number(s.longitude)], { icon })
-            .bindPopup(`<b>${s.stop_name}</b>${s.pickup_time ? '<br>時間：' + s.pickup_time : ''}`)
+            .bindPopup(`<b>${s.stop_name}</b>${s.pickup_time ? '<br>時間:' + s.pickup_time : ''}`)
             .addTo(lg);
         });
         lg.addTo(mapRef.current);
         stopsLayerRef.current = lg;
       } catch {
-        // 静默失敗 - 站牌是附加功能
+        // 靜默失敗 - 站牌是附加功能
       }
     };
     loadStops();
