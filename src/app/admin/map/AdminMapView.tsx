@@ -25,6 +25,7 @@ export default function AdminMapView() {
   const mapElRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Record<number, L.Marker>>({});
   const pathLayerRef = useRef<L.LayerGroup | null>(null);
+  const stopsLayerRef = useRef<L.LayerGroup | null>(null);
   const [buses, setBuses] = useState<any[]>([]);
   const [selBus, setSelBus] = useState<any>(null);
   const [routeFilter, setRouteFilter] = useState('all');
@@ -112,6 +113,49 @@ export default function AdminMapView() {
     setShowPath(false);
     clearPath();
     setDrawerOpen(false);
+    // 棝�選到車後，抓該條路線的站牌畫在地圖上
+    loadAndDrawStops(busId);
+  }
+
+  // 印桦某條路線的站牌 marker (紫色)
+  async function loadAndDrawStops(busId: number) {
+    if (!mapRef.current) return;
+    clearStops();
+    try {
+      const r = await fetch(`${API}/api/admin/buses/${busId}/stops`, { headers: H() });
+      if (!r.ok) return;
+      const data = await r.json();
+      const stops = (data?.stops || []).filter((s: any) => s.latitude != null && s.longitude != null);
+      if (stops.length === 0) return;
+      const lg = L.layerGroup();
+      stops.forEach((s: any) => {
+        const orderLabel = s.stop_order ?? '?';
+        const icon = L.divIcon({
+          html: `<div style="position:relative">
+            <div style="width:30px;height:30px;background:#a855f7;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:11px">
+              <span style="transform:rotate(45deg)">${orderLabel}</span>
+            </div>
+          </div>`,
+          className: '',
+          iconSize: [30, 30],
+          iconAnchor: [15, 30],
+        });
+        L.marker([Number(s.latitude), Number(s.longitude)], { icon })
+          .bindPopup(`<b>${s.stop_name}</b><br>順序：${orderLabel}${s.pickup_time ? '<br>時間：' + s.pickup_time : ''}`)
+          .addTo(lg);
+      });
+      lg.addTo(mapRef.current);
+      stopsLayerRef.current = lg;
+    } catch (e) {
+      // 沈默失敗 - 站牌是附加功能，不影響主榴
+    }
+  }
+
+  function clearStops() {
+    if (stopsLayerRef.current && mapRef.current) {
+      mapRef.current.removeLayer(stopsLayerRef.current);
+      stopsLayerRef.current = null;
+    }
   }
 
   async function togglePath() {
@@ -275,7 +319,7 @@ export default function AdminMapView() {
           <div style={{ position: 'absolute', bottom: 16, right: 16, background: '#FFFFFF', border: '1px solid #E8E8E8', borderRadius: 12, padding: 14, width: 260, zIndex: 999 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{selBus.bus_name}</span>
-              <span style={{ cursor: 'pointer', color: '#888888', fontSize: 18 }} onClick={() => { setSelBus(null); clearPath(); setShowPath(false); }}>×</span>
+              <span style={{ cursor: 'pointer', color: '#888888', fontSize: 18 }} onClick={() => { setSelBus(null); clearPath(); clearStops(); setShowPath(false); }}>×</span>
             </div>
             {[
               { label: '路線', value: selBus.route_name || '-' },

@@ -12,6 +12,7 @@ export default function ParentMapView() {
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const pathRef = useRef<any>(null);
+  const stopsLayerRef = useRef<any>(null);
   const progressRef = useRef<NodeJS.Timeout | null>(null);
   const [data, setData] = useState<any[]>([]);
   const [cur, setCur] = useState(0);
@@ -151,6 +152,56 @@ export default function ParentMapView() {
 
     updateMap();
   }, [data, cur]);
+
+  // 階段 3b Step 2 — 站牌 marker (隨拈到孩子那條車的站牌)
+  useEffect(() => {
+    if (!data.length) return;
+    const item = data[cur];
+    const busId = item?.bus?.id;
+    if (!busId) return;
+
+    const loadStops = async () => {
+      if (!mapRef.current) {
+        await new Promise(r => setTimeout(r, 500));
+        if (!mapRef.current) return;
+      }
+      const L = (await import('leaflet')).default;
+      // 清掉舊站牌
+      if (stopsLayerRef.current) {
+        try { mapRef.current.removeLayer(stopsLayerRef.current); } catch {}
+        stopsLayerRef.current = null;
+      }
+      try {
+        const r = await fetch(`${API}/api/parent/buses/${busId}/stops`, { headers: H() });
+        if (!r.ok) return;
+        const d = await r.json();
+        const stops = (d?.stops || []).filter((s: any) => s.latitude != null && s.longitude != null);
+        if (stops.length === 0) return;
+        const lg = L.layerGroup();
+        stops.forEach((s: any) => {
+          const orderLabel = s.stop_order ?? '?';
+          const icon = L.divIcon({
+            html: `<div style="position:relative">
+              <div style="width:28px;height:28px;background:#a855f7;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid white;box-shadow:0 2px 5px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;font-size:11px">
+                <span style="transform:rotate(45deg)">${orderLabel}</span>
+              </div>
+            </div>`,
+            className: '',
+            iconSize: [28, 28],
+            iconAnchor: [14, 28],
+          });
+          L.marker([Number(s.latitude), Number(s.longitude)], { icon })
+            .bindPopup(`<b>${s.stop_name}</b>${s.pickup_time ? '<br>時間：' + s.pickup_time : ''}`)
+            .addTo(lg);
+        });
+        lg.addTo(mapRef.current);
+        stopsLayerRef.current = lg;
+      } catch {
+        // 静默失敗 - 站牌是附加功能
+      }
+    };
+    loadStops();
+  }, [cur, data]);
 
   const togglePath = async () => {
     if (!data.length || !mapRef.current) return;
