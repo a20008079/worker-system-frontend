@@ -55,6 +55,15 @@ export default function StopsPage() {
     })();
   }, [router]);
 
+  // ========== modal 開關時讓地圖重算大小 (因為地圖容器寬度變了) ==========
+  useEffect(() => {
+    const open = !!editingStop || addingNew;
+    // 用兩次 timeout 讓 CSS 動畫先完成再 resize
+    const t1 = setTimeout(() => mapRef.current?.invalidateSize(), 100);
+    const t2 = setTimeout(() => mapRef.current?.invalidateSize(), 400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [editingStop, addingNew]);
+
   // ========== 選了路線後載站牌 ==========
   useEffect(() => {
     if (selectedBusId == null) return;
@@ -491,10 +500,9 @@ function StopEditModal({ stop, pickedLatLng, onClose, onSave, saving }: ModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-[2000] flex items-end md:items-center justify-center bg-black/70 p-3"
-         onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md"
-           onClick={(e) => e.stopPropagation()}>
+    <div className="fixed top-0 right-0 bottom-0 z-[2000] w-full sm:w-[400px] bg-gray-900 border-l border-gray-700 shadow-2xl overflow-y-auto"
+         onClick={(e) => e.stopPropagation()}>
+      <div>
         <div className="px-5 py-4 border-b border-gray-800">
           <div className="text-white font-bold">{stop ? '✏️ 編輯站牌' : '➕ 新增站牌'}</div>
           <div className="text-gray-500 text-xs mt-0.5">在地圖上點選位置以設定座標</div>
