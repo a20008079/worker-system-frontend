@@ -160,3 +160,101 @@ export async function importStopsFromStudents(busId: number): Promise<ImportStop
   });
   return await handleResponse<ImportStopsResult>(r);
 }
+// ============================================================
+// 階段 3c-1:Google 表單匯入 (student-import staging)
+// 貼到 src/lib/busApi.ts 檔案末尾
+// ============================================================
+
+// 前端解析好的一列 (對應 staging 表欄位)
+export interface StudentImportRow {
+  row_num: number;
+  timestamp_raw: string;
+  class_name: string;
+  seat_no: string;
+  student_name: string;
+  parent_name: string;
+  parent_phone: string;
+  home_address: string;
+  ride_period: string;
+  pickup_stop: string;
+  dropoff_stop: string;
+  mon_time: string;
+  tue_time: string;
+  wed_time: string;
+  thu_time: string;
+  fri_time: string;
+  note: string;
+}
+
+export interface ImportQuality {
+  short_addr: number;
+  phone_slash: number;
+  empty_stop: number;
+  dup_seat: number;
+}
+
+export interface ImportUploadResult {
+  ok: boolean;
+  batch_id: string;
+  total: number;
+  quality: ImportQuality;
+}
+
+export interface ImportBatch {
+  batch_id: string;
+  total: number;
+  applied_count: number;
+  created_at: string;
+}
+
+// staging 表一列 (含 server 算好的 quality_flags / 處理狀態)
+export interface StagedRowServer extends StudentImportRow {
+  id: number;
+  quality_flags: string | null;
+  match_status: string;
+  matched_student_id: number | null;
+  geo_lat: number | null;
+  geo_lng: number | null;
+  recommended_bus_id: number | null;
+  recommended_stop_id: number | null;
+  applied: number;
+}
+
+// 上傳解析好的 rows -> 後端寫 staging,回傳 batch_id + 品質統計
+export async function uploadStudentImport(
+  rows: StudentImportRow[]
+): Promise<ImportUploadResult> {
+  const r = await fetch(`${API}/api/admin/student-import/upload`, {
+    method: 'POST',
+    headers: H(),
+    body: JSON.stringify({ rows }),
+  });
+  return await handleResponse<ImportUploadResult>(r);
+}
+
+// 列出所有匯入批次
+export async function fetchImportBatches(): Promise<ImportBatch[]> {
+  const r = await fetch(`${API}/api/admin/student-import/batches`, { headers: H() });
+  const d = await handleResponse<{ batches: ImportBatch[] }>(r);
+  return d.batches;
+}
+
+// 讀某批次明細 (預覽用)
+export async function fetchImportBatch(
+  batchId: string
+): Promise<{ batch_id: string; total: number; quality: ImportQuality; rows: StagedRowServer[] }> {
+  const r = await fetch(`${API}/api/admin/student-import/${batchId}`, { headers: H() });
+  return await handleResponse<{
+    batch_id: string; total: number; quality: ImportQuality; rows: StagedRowServer[];
+  }>(r);
+}
+
+// 刪某批次 (上傳到一半失敗想重來時用)
+export async function deleteImportBatch(batchId: string): Promise<{ ok: boolean; deleted: number }> {
+  const r = await fetch(`${API}/api/admin/student-import/${batchId}`, {
+    method: 'DELETE',
+    headers: H(),
+  });
+  return await handleResponse<{ ok: boolean; deleted: number }>(r);
+}
+
