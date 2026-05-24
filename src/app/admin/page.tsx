@@ -194,6 +194,16 @@ export default function AdminPage() {
           </div>
           <div className="ml-auto text-gray-500 text-lg">›</div>
         </button>
+
+        <button onClick={() => router.push('/admin/student-import')}
+          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700 mt-3">
+          <div className="text-3xl">📋</div>
+          <div className="text-left">
+            <div className="text-white font-bold text-sm">Google 表單匯入</div>
+            <div className="text-gray-400 text-xs mt-0.5">上傳家長表單 xlsx · 解析學生資料 · 標記品質問題</div>
+          </div>
+          <div className="ml-auto text-gray-500 text-lg">›</div>
+        </button>
       </div>
 
       {/* Tab */}
