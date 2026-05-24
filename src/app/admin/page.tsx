@@ -59,8 +59,8 @@ export default function AdminPage() {
         <StatCard emoji="👦" label="學生" value={students.length} color="amber" />
       </div>
 
-      {/* 即時監控 */}
-      <div className="px-4 mb-4">
+      {/* ① 即時監控 — 唯一用主色藍的卡 (最常用) */}
+      <div className="px-4 mb-5">
         <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">即時監控</div>
         <button onClick={() => router.push('/admin/map')}
           className="w-full bg-gradient-to-r from-blue-900 to-blue-800 hover:from-blue-800 hover:to-blue-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-blue-700/50">
@@ -83,127 +83,52 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* 學生建檔 */}
-      <div className="px-4 mb-4">
-        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">學生建檔</div>
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => router.push('/admin/scan')}
-            className="bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all rounded-2xl p-4 text-left">
-            <div className="text-2xl mb-2">📷</div>
-            <div className="text-white font-bold text-sm">掃描學生證</div>
-            <div className="text-blue-200 text-xs mt-0.5">逐一掃描快速建檔</div>
-          </button>
-          <button onClick={() => router.push('/admin/import')}
-            className="bg-emerald-700 hover:bg-emerald-600 active:scale-95 transition-all rounded-2xl p-4 text-left">
-            <div className="text-2xl mb-2">📥</div>
-            <div className="text-white font-bold text-sm">批次匯入</div>
-            <div className="text-emerald-200 text-xs mt-0.5">Excel / CSV 批量建檔</div>
-          </button>
+      {/* ② 學生資料 — 建檔與匯入 (三個歸一起) */}
+      <div className="px-4 mb-5">
+        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">學生資料</div>
+        <div className="grid grid-cols-1 gap-3">
+          <DashCard emoji="📋" title="Google 表單匯入" desc="上傳家長表單 xlsx · 解析學生資料 · 標記品質問題" onClick={() => router.push('/admin/student-import')} />
+          <div className="grid grid-cols-2 gap-3">
+            <DashCard emoji="📷" title="掃描學生證" desc="逐一掃描快速建檔" onClick={() => router.push('/admin/scan')} />
+            <DashCard emoji="📥" title="批次匯入" desc="Excel / CSV 批量建檔" onClick={() => router.push('/admin/import')} />
+          </div>
+          <DashCard emoji="📊" title="匯出學生名單" desc="下載 Excel 格式（含新欄位）" arrow="↓"
+            onClick={() => {
+              const tok = localStorage.getItem('token');
+              fetch(`${API}/api/admin/export`, { headers: { Authorization: `Bearer ${tok}` } })
+                .then(r => r.blob())
+                .then(blob => {
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `校車學生資料庫_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '-')}.xlsx`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                });
+            }} />
         </div>
       </div>
 
-      {/* 管理工具 */}
-      <div className="px-4 mb-4">
-        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">管理工具</div>
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => router.push('/admin/history')}
-            className="bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 text-left border border-gray-700">
-            <div className="text-2xl mb-2">📋</div>
-            <div className="text-white font-bold text-sm">歷史紀錄</div>
-            <div className="text-gray-400 text-xs mt-0.5">出勤查詢 · 學生紀錄 · 統計</div>
-          </button>
-          <button onClick={() => router.push('/admin/bus')}
-            className="bg-gradient-to-br from-blue-700 to-blue-900 hover:from-blue-600 hover:to-blue-800 active:scale-95 transition-all rounded-2xl p-4 text-left border border-blue-600/50 col-span-2 mb-3">
-            <div className="flex items-center gap-3">
-              <div className="text-3xl">🚌</div>
-              <div className="flex-1">
-                <div className="text-white font-bold text-sm">校車系統</div>
-                <div className="text-blue-200 text-xs mt-0.5">學生 · 路線 · 上下學時段 · 匯出 Excel</div>
-              </div>
-              <div className="text-blue-300 text-lg">›</div>
-            </div>
-          </button>
-          <button onClick={() => setShowRouteManager(true)}
-            className="bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 text-left border border-gray-700">
-            <div className="text-2xl mb-2">🛣️</div>
-            <div className="text-white font-bold text-sm">路線管理</div>
-            <div className="text-gray-400 text-xs mt-0.5">新增 · 刪除校車路線</div>
-          </button>
+      {/* ③ 車隊管理 — 校車/路線/站牌/歷史 */}
+      <div className="px-4 mb-5">
+        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">車隊管理</div>
+        <div className="grid grid-cols-1 gap-3">
+          <DashCard emoji="🚌" title="校車系統" desc="學生 · 路線 · 上下學時段 · 匯出 Excel" onClick={() => router.push('/admin/bus')} />
+          <div className="grid grid-cols-2 gap-3">
+            <DashCard emoji="🛣️" title="路線管理" desc="新增 · 刪除校車路線" onClick={() => setShowRouteManager(true)} />
+            <DashCard emoji="📍" title="站牌管理" desc="設定上下車點 · 地圖選座標" onClick={() => router.push('/admin/stops')} />
+          </div>
+          <DashCard emoji="📋" title="歷史紀錄" desc="出勤查詢 · 學生紀錄 · 統計" onClick={() => router.push('/admin/history')} />
         </div>
-        <a href="#" onClick={e => {
-            e.preventDefault();
-            const tok = localStorage.getItem('token');
-            fetch(`${API}/api/admin/export`, { headers: { Authorization: `Bearer ${tok}` } })
-              .then(r => r.blob())
-              .then(blob => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `校車學生資料庫_${new Date().toLocaleDateString('zh-TW').replace(/\//g, '-')}.xlsx`;
-                a.click();
-                URL.revokeObjectURL(url);
-              });
-          }}
-          className="w-full mt-3 bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-3 flex items-center gap-3 border border-gray-700 no-underline block">
-          <div className="text-xl">📊</div>
-          <div className="text-left">
-            <div className="text-white font-bold text-sm">匯出學生名單</div>
-            <div className="text-gray-400 text-xs">下載 Excel 格式（含新欄位）</div>
-          </div>
-          <div className="ml-auto text-gray-500 text-sm">↓</div>
-        </a>
       </div>
 
-      {/* 帳號管理 */}
-      <div className="px-4 mb-4">
-        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">帳號管理</div>
-        <button onClick={() => router.push('/admin/accounts')}
-          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700">
-          <div className="text-3xl">👤</div>
-          <div className="text-left">
-            <div className="text-white font-bold text-sm">帳號管理</div>
-            <div className="text-gray-400 text-xs mt-0.5">新增 / 修改 / 刪除 家長、司機、管理員帳號密碼</div>
-          </div>
-          <div className="ml-auto text-gray-500 text-lg">›</div>
-        </button>
-      </div>
-
-      {/* 系統設定 */}
-      <div className="px-4 mb-4">
-        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">系統設定</div>
-        <button onClick={() => router.push('/admin/settings')}
-          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700">
-          <div className="text-3xl">⚙️</div>
-          <div className="text-left">
-            <div className="text-white font-bold text-sm">系統設定</div>
-            <div className="text-gray-400 text-xs mt-0.5">車隊參數 · 排車門檻 · 載客上限</div>
-          </div>
-          <div className="ml-auto text-gray-500 text-lg">›</div>
-        </button>
-      </div>
-
-      {/* 站牌管理 */}
-      <div className="px-4 mb-4">
-        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">地圖 · 站牌</div>
-        <button onClick={() => router.push('/admin/stops')}
-          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700">
-          <div className="text-3xl">📍</div>
-          <div className="text-left">
-            <div className="text-white font-bold text-sm">站牌管理</div>
-            <div className="text-gray-400 text-xs mt-0.5">逐條路線設定上下車點 · 點地圖選座標</div>
-          </div>
-          <div className="ml-auto text-gray-500 text-lg">›</div>
-        </button>
-
-        <button onClick={() => router.push('/admin/student-import')}
-          className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700 mt-3">
-          <div className="text-3xl">📋</div>
-          <div className="text-left">
-            <div className="text-white font-bold text-sm">Google 表單匯入</div>
-            <div className="text-gray-400 text-xs mt-0.5">上傳家長表單 xlsx · 解析學生資料 · 標記品質問題</div>
-          </div>
-          <div className="ml-auto text-gray-500 text-lg">›</div>
-        </button>
+      {/* ④ 系統 — 帳號/設定 */}
+      <div className="px-4 mb-5">
+        <div className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-2 px-1">系統</div>
+        <div className="grid grid-cols-2 gap-3">
+          <DashCard emoji="👤" title="帳號管理" desc="家長 · 司機 · 管理員" onClick={() => router.push('/admin/accounts')} />
+          <DashCard emoji="⚙️" title="系統設定" desc="車隊參數 · 載客上限" onClick={() => router.push('/admin/settings')} />
+        </div>
       </div>
 
       {/* Tab */}
@@ -453,6 +378,23 @@ function RouteManager({ buses, drivers, onClose, onRefresh }: {
 // ══════════════════════════════════════════════════════
 // 元件
 // ══════════════════════════════════════════════════════
+// 統一的功能卡片 (深灰,全站一致)。arrow 預設 ›,匯出類傳 ↓
+function DashCard({ emoji, title, desc, onClick, arrow = '›' }: {
+  emoji: string; title: string; desc: string; onClick: () => void; arrow?: string;
+}) {
+  return (
+    <button onClick={onClick}
+      className="w-full bg-gray-800 hover:bg-gray-700 active:scale-95 transition-all rounded-2xl p-4 flex items-center gap-4 border border-gray-700 text-left">
+      <div className="text-3xl shrink-0">{emoji}</div>
+      <div className="flex-1 min-w-0">
+        <div className="text-white font-bold text-sm">{title}</div>
+        <div className="text-gray-400 text-xs mt-0.5">{desc}</div>
+      </div>
+      <div className="text-gray-500 text-lg shrink-0">{arrow}</div>
+    </button>
+  );
+}
+
 function StatCard({ emoji, label, value, color }: any) {
   const colors: Record<string, string> = {
     blue:    'border-blue-800/40 bg-blue-950/30',
