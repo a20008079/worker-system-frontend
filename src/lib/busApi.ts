@@ -258,3 +258,35 @@ export async function deleteImportBatch(batchId: string): Promise<{ ok: boolean;
   return await handleResponse<{ ok: boolean; deleted: number }>(r);
 }
 
+// ============================================================
+// 階段 3c-2:Geocoding
+// ============================================================
+
+export interface GeocodeProgress {
+  total: number;
+  geocoded: number;
+  failed: number;
+  remaining: number;
+}
+
+export interface GeocodeStepResult extends GeocodeProgress {
+  ok: boolean;
+  step_ok: number;
+  step_fail: number;
+}
+
+// 查目前進度
+export async function fetchGeocodeStatus(batchId: string): Promise<GeocodeProgress> {
+  const r = await fetch(`${API}/api/admin/student-import/${batchId}/geocode-status`, { headers: H() });
+  return await handleResponse<GeocodeProgress>(r);
+}
+
+// 查一小批 (前端反覆呼叫直到 remaining=0)
+export async function geocodeStep(batchId: string, stepSize = 10): Promise<GeocodeStepResult> {
+  const r = await fetch(`${API}/api/admin/student-import/${batchId}/geocode-step`, {
+    method: 'POST',
+    headers: H(),
+    body: JSON.stringify({ step_size: stepSize }),
+  });
+  return await handleResponse<GeocodeStepResult>(r);
+}

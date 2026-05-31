@@ -13,7 +13,9 @@ import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   uploadStudentImport, fetchImportBatches, fetchImportBatch,
+  fetchGeocodeStatus, geocodeStep,
   type StudentImportRow, type ImportQuality, type ImportBatch, type StagedRowServer,
+  type GeocodeProgress,
 } from '@/lib/busApi';
 
 // ── Google 表單欄位 -> staging 欄位 的彈性對應 ──
@@ -93,6 +95,10 @@ export default function StudentImportPage() {
   const [batches, setBatches] = useState<ImportBatch[]>([]);
   const [err, setErr] = useState('');
   const [filterFlag, setFilterFlag] = useState('');
+  // 3c-2 Geocoding
+  const [geo, setGeo] = useState<GeocodeProgress | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const geocodingRef = useRef(false); // 用 ref 控制中斷
 
   const loadBatches = async () => {
     try { setBatches(await fetchImportBatches()); } catch { /* 忽略 */ }
@@ -138,6 +144,7 @@ export default function StudentImportPage() {
       setQuality(d.quality);
       await loadBatches();
       await loadBatch(d.batch_id);
+      await loadGeo(d.batch_id);
     } catch (ex: any) {
       setErr('上傳失敗: ' + (ex?.message || String(ex)));
     } finally {
@@ -151,6 +158,7 @@ export default function StudentImportPage() {
     try {
       const d = await fetchImportBatch(bid);
       setBatchId(bid);
+      loadGeo(bid);
       setQuality(d.quality);
       setServerRows(d.rows || []);
       setParsedRows([]);
@@ -158,6 +166,33 @@ export default function StudentImportPage() {
       setErr('讀取失敗: ' + (ex?.message || String(ex)));
     }
   };
+
+  // 進某批次時,順便載入 geocoding 進度
+  const loadGeo = async (bid: string) => {
+    try { setGeo(await fetchGeocodeStatus(bid)); } catch { setGeo(null); }
+  };
+
+  // 開始/繼續查座標:反覆呼叫 geocodeStep 直到 remaining=0 或被中斷
+  const startGeocode = async () => {
+    if (!batchId || geocoding) return;
+    setGeocoding(true);
+    geocodingRef.current = true;
+    try {
+      let done = false;
+      while (geocodingRef.current && !done) {
+        const r = await geocodeStep(batchId, 10);
+        setGeo({ total: r.total, geocoded: r.geocoded, failed: r.failed, remaining: r.remaining });
+        if (r.remaining <= 0) done = true;
+      }
+    } catch (ex: any) {
+      setErr('查詢座標失敗: ' + (ex?.message || String(ex)) + ' (可能是後端無法連線到 Nominatim,或網路問題。可按繼續重試)');
+    } finally {
+      setGeocoding(false);
+      geocodingRef.current = false;
+    }
+  };
+
+  const stopGeocode = () => { geocodingRef.current = false; };
 
   const showRows: any[] = serverRows.length > 0 ? serverRows : parsedRows;
   const filtered = filterFlag
@@ -211,6 +246,51 @@ export default function StudentImportPage() {
           <p style={S.hint}>
             這些問題需老師之後手動處理(地址過短會導致 Geocoding 失敗、班座重複需確認是否同一人)。點標籤可篩選。
           </p>
+        </div>
+      )}
+
+      {/* 3c-2 座標查詢 */}
+      {batchId && geo && (
+        <div style={S.card}>
+          <div style={S.cardTitle}>座標查詢（Geocoding）</div>
+          <p style={S.hint}>
+            用 OpenStreetMap 免費服務查每位學生住家的經緯度,供之後推薦路線用。
+            限速關係,479 筆約需 8-10 分鐘,可中途暫停、之後再繼續(已查過的不會重跑)。
+            地址過短的會自動標記為失敗,需老師手動補。
+          </p>
+
+          {/* 進度條 */}
+          <div style={{ margin: '12px 0' }}>
+            <div style={{ height: 14, background: '#e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+              <div style={{
+                height: '100%',
+                width: `${geo.total > 0 ? Math.round(((geo.geocoded + geo.failed) / geo.total) * 100) : 0}%`,
+                background: 'linear-gradient(90deg,#4338ca,#6366f1)',
+                transition: 'width .3s',
+              }} />
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13, flexWrap: 'wrap' }}>
+              <span>總計 <b>{geo.total}</b></span>
+              <span style={{ color: '#059669' }}>已查到座標 <b>{geo.geocoded}</b></span>
+              <span style={{ color: '#dc2626' }}>失敗 <b>{geo.failed}</b></span>
+              <span style={{ color: '#64748b' }}>待查 <b>{geo.remaining}</b></span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            {!geocoding && geo.remaining > 0 && (
+              <button style={{ ...S.btn, ...S.btnPrimary }} onClick={startGeocode}>
+                {geo.geocoded + geo.failed > 0 ? '繼續查詢' : '開始查詢座標'}
+              </button>
+            )}
+            {geocoding && (
+              <button style={S.btn} onClick={stopGeocode}>暫停</button>
+            )}
+            {geo.remaining === 0 && geo.total > 0 && (
+              <span style={S.okText}>✓ 查詢完成（{geo.geocoded} 成功 / {geo.failed} 失敗）</span>
+            )}
+          </div>
+          {geocoding && <p style={S.hint}>查詢中…每秒約 1 筆,請保持此頁開啟。可按「暫停」中斷。</p>}
         </div>
       )}
 
