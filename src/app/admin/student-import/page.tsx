@@ -194,6 +194,24 @@ export default function StudentImportPage() {
 
   const stopGeocode = () => { geocodingRef.current = false; };
 
+  // 重置這批次的 geocoding 狀態 (除錯/重跑用)
+  const resetGeocode = async () => {
+    if (!batchId) return;
+    if (!confirm(`確定要重置批次 ${batchId} 的座標查詢狀態嗎?所有筆數會變回「待查」,需要重跑。`)) return;
+    try {
+      const tok = localStorage.getItem('token');
+      const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/student-import/${batchId}/geocode-reset`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      await loadGeo(batchId);
+      setErr('');
+    } catch (ex: any) {
+      setErr('重置失敗: ' + (ex?.message || String(ex)));
+    }
+  };
+
   const showRows: any[] = serverRows.length > 0 ? serverRows : parsedRows;
   const filtered = filterFlag
     ? showRows.filter((r) => (r.quality_flags || computeLocalFlags(r)).includes(filterFlag))
@@ -288,6 +306,11 @@ export default function StudentImportPage() {
             )}
             {geo.remaining === 0 && geo.total > 0 && (
               <span style={S.okText}>✓ 查詢完成（{geo.geocoded} 成功 / {geo.failed} 失敗）</span>
+            )}
+            {!geocoding && (geo.geocoded > 0 || geo.failed > 0) && (
+              <button style={{ ...S.btn, color: '#dc2626', borderColor: '#fecaca' }} onClick={resetGeocode}>
+                重置(全部重查)
+              </button>
             )}
           </div>
           {geocoding && <p style={S.hint}>查詢中…每秒約 1 筆,請保持此頁開啟。可按「暫停」中斷。</p>}
