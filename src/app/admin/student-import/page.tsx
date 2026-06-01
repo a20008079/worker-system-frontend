@@ -274,7 +274,7 @@ export default function StudentImportPage() {
           <p style={S.hint}>
             用 OpenStreetMap 免費服務查每位學生住家的經緯度,供之後推薦路線用。
             限速關係,479 筆約需 8-10 分鐘,可中途暫停、之後再繼續(已查過的不會重跑)。
-            地址過短的會自動標記為失敗,需老師手動補。
+            地址過短或查不到的會標記為「待手動」,匯總後請老師逐筆檢查補座標。
           </p>
 
           {/* 進度條 */}
@@ -290,7 +290,7 @@ export default function StudentImportPage() {
             <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13, flexWrap: 'wrap' }}>
               <span>總計 <b>{geo.total}</b></span>
               <span style={{ color: '#059669' }}>已查到座標 <b>{geo.geocoded}</b></span>
-              <span style={{ color: '#dc2626' }}>失敗 <b>{geo.failed}</b></span>
+              <span style={{ color: '#dc2626' }}>待手動 <b>{geo.failed}</b></span>
               <span style={{ color: '#64748b' }}>待查 <b>{geo.remaining}</b></span>
             </div>
           </div>
@@ -305,7 +305,7 @@ export default function StudentImportPage() {
               <button style={S.btn} onClick={stopGeocode}>暫停</button>
             )}
             {geo.remaining === 0 && geo.total > 0 && (
-              <span style={S.okText}>✓ 查詢完成（{geo.geocoded} 成功 / {geo.failed} 失敗）</span>
+              <span style={S.okText}>✓ 查詢完成({geo.geocoded} 成功 / {geo.failed} 待手動)</span>
             )}
             {!geocoding && (geo.geocoded > 0 || geo.failed > 0) && (
               <button style={{ ...S.btn, color: '#dc2626', borderColor: '#fecaca' }} onClick={resetGeocode}>
