@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import {
   uploadStudentImport, fetchImportBatches, fetchImportBatch,
-  fetchGeocodeStatus, geocodeStep,
+  fetchGeocodeStatus, geocodeStep, setStagingGeo,
   type StudentImportRow, type ImportQuality, type ImportBatch, type StagedRowServer,
   type GeocodeProgress,
 } from '@/lib/busApi';
@@ -99,11 +99,68 @@ export default function StudentImportPage() {
   const [geo, setGeo] = useState<GeocodeProgress | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const geocodingRef = useRef(false); // 用 ref 控制中斷
+  // 3c-2 手動補座標
+  const [manualEdit, setManualEdit] = useState<StagedRowServer | null>(null);
+  const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(null);
+  const [savingManual, setSavingManual] = useState(false);
+  const mapDivRef = useRef<HTMLDivElement | null>(null);
+  const mapInstRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
 
   const loadBatches = async () => {
     try { setBatches(await fetchImportBatches()); } catch { /* 忽略 */ }
   };
   useEffect(() => { loadBatches(); }, []);
+
+  // 開啟側邊面板時初始化地圖
+  useEffect(() => {
+    if (!manualEdit || !mapDivRef.current) return;
+    let cancelled = false;
+    (async () => {
+      // 動態載入 leaflet (站牌管理頁有用,前端已裝)
+      const L = (await import('leaflet')).default as any;
+      // CSS (確保 leaflet 樣式)
+      if (!document.querySelector('link[data-leaflet]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        link.setAttribute('data-leaflet', '1');
+        document.head.appendChild(link);
+      }
+      if (cancelled || !mapDivRef.current) return;
+      // 已有舊地圖先清掉
+      if (mapInstRef.current) {
+        mapInstRef.current.remove();
+        mapInstRef.current = null;
+      }
+      // 預設指到學校位置 (中壢有得雙語)
+      const startLat = manualEdit.geo_lat ?? 24.9627;
+      const startLng = manualEdit.geo_lng ?? 121.2435;
+      const map = L.map(mapDivRef.current).setView([startLat, startLng], 15);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(map);
+      // 已有座標就先放個 marker
+      if (manualEdit.geo_lat && manualEdit.geo_lng) {
+        markerRef.current = L.marker([manualEdit.geo_lat, manualEdit.geo_lng]).addTo(map);
+        setPicked({ lat: manualEdit.geo_lat, lng: manualEdit.geo_lng });
+      }
+      // 點地圖任一處 = 標記座標
+      map.on('click', (e: any) => {
+        const { lat, lng } = e.latlng;
+        if (markerRef.current) {
+          markerRef.current.setLatLng([lat, lng]);
+        } else {
+          markerRef.current = L.marker([lat, lng]).addTo(map);
+        }
+        setPicked({ lat, lng });
+      });
+      mapInstRef.current = map;
+      // 等 DOM 渲染完強制 invalidate (避免 modal 開時地圖灰塊)
+      setTimeout(() => map.invalidateSize(), 100);
+    })();
+    return () => { cancelled = true; };
+  }, [manualEdit?.id]);
 
   // 選檔 -> 前端解析
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -193,6 +250,39 @@ export default function StudentImportPage() {
   };
 
   const stopGeocode = () => { geocodingRef.current = false; };
+
+  // 開啟側邊面板
+  const openManual = (row: StagedRowServer) => {
+    setManualEdit(row);
+    setPicked(null);
+  };
+  const closeManual = () => {
+    setManualEdit(null);
+    setPicked(null);
+    if (mapInstRef.current) {
+      mapInstRef.current.remove();
+      mapInstRef.current = null;
+      markerRef.current = null;
+    }
+  };
+  // 儲存手動座標
+  const saveManual = async () => {
+    if (!manualEdit || !picked) return;
+    setSavingManual(true);
+    try {
+      await setStagingGeo(manualEdit.id, picked.lat, picked.lng);
+      // 重新載入該批次,讓清單更新
+      if (batchId) {
+        await loadBatch(batchId);
+        await loadGeo(batchId);
+      }
+      closeManual();
+    } catch (ex: any) {
+      setErr('儲存失敗: ' + (ex?.message || String(ex)));
+    } finally {
+      setSavingManual(false);
+    }
+  };
 
   // 重置這批次的 geocoding 狀態 (除錯/重跑用)
   const resetGeocode = async () => {
@@ -315,6 +405,111 @@ export default function StudentImportPage() {
           </div>
           {geocoding && <p style={S.hint}>查詢中…每秒約 1 筆,請保持此頁開啟。可按「暫停」中斷。</p>}
         </div>
+      )}
+
+      {/* 3c-2 待手動清單 */}
+      {batchId && (() => {
+        const manualList = (serverRows || []).filter(r => r.match_status === 'needs_manual');
+        if (manualList.length === 0) return null;
+        return (
+          <div style={S.card}>
+            <div style={S.cardTitle}>
+              待手動補座標({manualList.length} 筆)
+            </div>
+            <p style={S.hint}>
+              這些學生的住家地址 OSM 查不到精確位置,需要老師在地圖上手動標位置。
+              點右側「📍 標位置」開啟地圖,點選位置後儲存即可。
+            </p>
+            <div style={{ maxHeight: 380, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+              <table style={S.table}>
+                <thead>
+                  <tr>
+                    <th style={S.th}>班級</th>
+                    <th style={S.th}>姓名</th>
+                    <th style={S.th}>地址</th>
+                    <th style={S.th}>家長</th>
+                    <th style={S.th}>電話</th>
+                    <th style={S.th}>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {manualList.slice(0, 500).map((r) => (
+                    <tr key={r.id} style={{ background: '#fffbeb' }}>
+                      <td style={S.td}>{r.class_name}</td>
+                      <td style={S.td}>{r.student_name}</td>
+                      <td style={{ ...S.td, maxWidth: 280 }}>{r.home_address || '（空白）'}</td>
+                      <td style={S.td}>{r.parent_name}</td>
+                      <td style={S.td}>{r.parent_phone}</td>
+                      <td style={S.td}>
+                        <button style={{ ...S.btn, ...S.btnPrimary, padding: '4px 10px', fontSize: 12 }}
+                          onClick={() => openManual(r)}>📍 標位置</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 3c-2 側邊地圖面板 */}
+      {manualEdit && (
+        <>
+          {/* 半透明遮罩(點外面不關閉,避免誤觸,要按 X 或取消) */}
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.4)', zIndex: 999,
+          }} onClick={() => { /* 不關閉,僅遮罩 */ }} />
+          {/* 右側面板 */}
+          <div style={{
+            position: 'fixed', top: 0, right: 0, bottom: 0,
+            width: 'min(540px, 92vw)', background: '#fff',
+            boxShadow: '-4px 0 12px rgba(0,0,0,0.2)',
+            zIndex: 1000, display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ padding: 16, borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
+                    手動補座標 — {manualEdit.class_name} {manualEdit.student_name}
+                  </div>
+                  <div style={{ fontSize: 13, color: '#64748b' }}>
+                    家長填寫地址:<b>{manualEdit.home_address || '(空白)'}</b>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                    家長:{manualEdit.parent_name} · 電話:{manualEdit.parent_phone}
+                  </div>
+                </div>
+                <button onClick={closeManual} style={{
+                  background: 'transparent', border: 'none', fontSize: 24,
+                  color: '#94a3b8', cursor: 'pointer', padding: 0, lineHeight: 1,
+                }}>×</button>
+              </div>
+            </div>
+            <div ref={mapDivRef} style={{ flex: 1, minHeight: 400 }} />
+            <div style={{ padding: 16, borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              {picked ? (
+                <div style={{ fontSize: 13, marginBottom: 10 }}>
+                  已選:<code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4 }}>
+                    {picked.lat.toFixed(6)}, {picked.lng.toFixed(6)}
+                  </code>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 10 }}>
+                  尚未選位置 — 在地圖上點一下要的位置
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button style={{ ...S.btn, flex: 1 }} onClick={closeManual} disabled={savingManual}>取消</button>
+                <button style={{ ...S.btn, ...S.btnPrimary, flex: 1 }} onClick={saveManual}
+                  disabled={!picked || savingManual}>
+                  {savingManual ? '儲存中…' : '儲存座標'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* 既有批次 */}

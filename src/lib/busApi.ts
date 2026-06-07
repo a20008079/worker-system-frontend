@@ -275,13 +275,11 @@ export interface GeocodeStepResult extends GeocodeProgress {
   step_fail: number;
 }
 
-// 查目前進度
 export async function fetchGeocodeStatus(batchId: string): Promise<GeocodeProgress> {
   const r = await fetch(`${API}/api/admin/student-import/${batchId}/geocode-status`, { headers: H() });
   return await handleResponse<GeocodeProgress>(r);
 }
 
-// 查一小批 (前端反覆呼叫直到 remaining=0)
 export async function geocodeStep(batchId: string, stepSize = 10): Promise<GeocodeStepResult> {
   const r = await fetch(`${API}/api/admin/student-import/${batchId}/geocode-step`, {
     method: 'POST',
@@ -289,4 +287,14 @@ export async function geocodeStep(batchId: string, stepSize = 10): Promise<Geoco
     body: JSON.stringify({ step_size: stepSize }),
   });
   return await handleResponse<GeocodeStepResult>(r);
+}
+
+// 老師手動補座標
+export async function setStagingGeo(stagingId: number, lat: number, lng: number): Promise<void> {
+  const r = await fetch(`${API}/api/admin/student-import/staging/${stagingId}/geo`, {
+    method: 'PUT',
+    headers: H(),
+    body: JSON.stringify({ lat, lng }),
+  });
+  await handleResponse<{ ok: boolean }>(r);
 }
