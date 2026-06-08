@@ -106,9 +106,6 @@ export default function StudentImportPage() {
   const [searchInput, setSearchInput] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchErr, setSearchErr] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [searchErr, setSearchErr] = useState('');
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapInstRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
