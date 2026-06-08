@@ -103,6 +103,12 @@ export default function StudentImportPage() {
   const [manualEdit, setManualEdit] = useState<StagedRowServer | null>(null);
   const [picked, setPicked] = useState<{ lat: number; lng: number } | null>(null);
   const [savingManual, setSavingManual] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchErr, setSearchErr] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchErr, setSearchErr] = useState('');
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapInstRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -255,16 +261,92 @@ export default function StudentImportPage() {
   const openManual = (row: StagedRowServer) => {
     setManualEdit(row);
     setPicked(null);
+    setSearchInput(row.home_address || '');
+    setSearchErr('');
   };
   const closeManual = () => {
     setManualEdit(null);
     setPicked(null);
+    setSearchInput('');
+    setSearchErr('');
     if (mapInstRef.current) {
       mapInstRef.current.remove();
       mapInstRef.current = null;
       markerRef.current = null;
     }
   };
+
+  // 用搜尋框查地址,跳到地圖位置
+  const doSearch = async () => {
+    const q = searchInput.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearchErr('');
+    try {
+      // 直接用 OSM (前端打,免後端;有 CORS 開放)
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&countrycodes=tw&accept-language=zh-TW`;
+      const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      const data = await resp.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        setSearchErr('找不到此地址,請改換寫法(可只留路名)或直接在地圖上手動點');
+        return;
+      }
+      const lat = Number(data[0].lat);
+      const lng = Number(data[0].lon);
+      const L = (await import('leaflet')).default as any;
+      if (mapInstRef.current) {
+        mapInstRef.current.setView([lat, lng], 17);
+        if (markerRef.current) {
+          markerRef.current.setLatLng([lat, lng]);
+        } else {
+          markerRef.current = L.marker([lat, lng]).addTo(mapInstRef.current);
+        }
+        setPicked({ lat, lng });
+      }
+    } catch (ex: any) {
+      setSearchErr('搜尋失敗: ' + (ex?.message || String(ex)));
+    } finally {
+      setSearching(false);
+    }
+  };
+  // 搜尋地址 -> 移動地圖 + 自動標 marker
+  const searchAddress = async () => {
+    const q = searchInput.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearchErr('');
+    try {
+      // 沒寫桃園/中壢的補上去提高命中率
+      let query = q;
+      if (!/[市縣]/.test(query)) query = '桃園市中壢區' + query;
+      else if (!/桃園市/.test(query)) query = '桃園市' + query;
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=tw`;
+      const resp = await fetch(url, { headers: { 'Accept-Language': 'zh-TW' } });
+      const data = await resp.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].lat && data[0].lon) {
+        const lat = Number(data[0].lat);
+        const lng = Number(data[0].lon);
+        // 移動地圖 + 放 marker
+        if (mapInstRef.current) {
+          mapInstRef.current.setView([lat, lng], 17);
+          if (markerRef.current) {
+            markerRef.current.setLatLng([lat, lng]);
+          } else {
+            const L = (await import('leaflet')).default as any;
+            markerRef.current = L.marker([lat, lng]).addTo(mapInstRef.current);
+          }
+        }
+        setPicked({ lat, lng });
+      } else {
+        setSearchErr('找不到此地址,請嘗試簡化(例如只留路名)或直接點地圖');
+      }
+    } catch (ex: any) {
+      setSearchErr('搜尋失敗: ' + (ex?.message || String(ex)));
+    } finally {
+      setSearching(false);
+    }
+  };
+
   // 儲存手動座標
   const saveManual = async () => {
     if (!manualEdit || !picked) return;
@@ -487,7 +569,67 @@ export default function StudentImportPage() {
                 }}>×</button>
               </div>
             </div>
-            <div ref={mapDivRef} style={{ flex: 1, minHeight: 400 }} />
+            {/* 搜尋框 — 直接打地址跳到位置 */}
+            <div style={{ padding: 12, borderBottom: '1px solid #e2e8f0', background: '#fafafa' }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') doSearch(); }}
+                  placeholder="輸入地址搜尋(例:中壢區福州二街)"
+                  style={{
+                    flex: 1, padding: '6px 10px', fontSize: 13,
+                    border: '1px solid #cbd5e1', borderRadius: 6,
+                  }}
+                />
+                <button onClick={doSearch} disabled={searching || !searchInput.trim()}
+                  style={{ ...S.btn, padding: '6px 14px', fontSize: 13 }}>
+                  {searching ? '搜尋中…' : '🔍 搜尋'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 6, fontSize: 11, color: '#64748b' }}>
+                <button onClick={() => { setSearchInput(manualEdit?.home_address || ''); setSearchErr(''); }}
+                  style={{ background: 'transparent', border: 'none', color: '#4338ca', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                  ↻ 還原家長地址
+                </button>
+                <span>· Enter 也可搜尋 · 找不到可改寫(去掉樓號/巷弄)再試</span>
+              </div>
+              {searchErr && (
+                <div style={{ marginTop: 6, padding: 6, fontSize: 12, background: '#fef2f2', color: '#b91c1c', borderRadius: 6 }}>
+                  {searchErr}
+                </div>
+              )}
+            </div>
+            {/* 搜尋框 */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') searchAddress(); }}
+                  placeholder="輸入地址搜尋(預設帶入家長填的地址)"
+                  style={{
+                    flex: 1, padding: '8px 12px', fontSize: 13,
+                    border: '1px solid #cbd5e1', borderRadius: 6, outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={searchAddress}
+                  disabled={searching || !searchInput.trim()}
+                  style={{ ...S.btn, padding: '8px 14px' }}
+                >
+                  {searching ? '搜尋中…' : '🔍 搜尋'}
+                </button>
+              </div>
+              {searchErr && (
+                <div style={{ marginTop: 6, fontSize: 12, color: '#dc2626' }}>{searchErr}</div>
+              )}
+              <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8' }}>
+                提示:可修改上方文字後再按搜尋,或直接在地圖上點位置
+              </div>
+            </div>
+            <div ref={mapDivRef} style={{ flex: 1, minHeight: 320 }} />
             <div style={{ padding: 16, borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
               {picked ? (
                 <div style={{ fontSize: 13, marginBottom: 10 }}>
