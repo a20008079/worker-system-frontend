@@ -246,6 +246,7 @@ export default function StopsPage() {
     longitude: number | null;
     address: string | null;
     pickup_time: string | null;
+    van_only_stop: boolean;
   }) => {
     setBusy(true); setMsg(null);
     try {
@@ -352,7 +353,13 @@ export default function StopsPage() {
                           {s.stop_order ?? '?'}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-semibold truncate">{s.stop_name}</div>
+                          <div className="text-white text-sm font-semibold truncate flex items-center gap-1.5">
+                            <span className="truncate">{s.stop_name}</span>
+                            {!!s.van_only_stop && (
+                              <span className="flex-shrink-0 text-[10px] font-bold bg-orange-900 text-orange-300 px-1.5 py-0.5 rounded"
+                                    title="巷子太小,只能廂型車進">🚐 限廂型</span>
+                            )}
+                          </div>
                           {hasCoord ? (
                             <div className="text-gray-400 text-xs mt-0.5">
                               📍 {Number(s.latitude).toFixed(5)}, {Number(s.longitude).toFixed(5)}
@@ -442,6 +449,7 @@ interface ModalProps {
     longitude: number | null;
     address: string | null;
     pickup_time: string | null;
+    van_only_stop: boolean;
   }) => void;
   saving: boolean;
 }
@@ -449,6 +457,7 @@ function StopEditModal({ stop, pickedLatLng, onClose, onSave, saving }: ModalPro
   const [name, setName] = useState(stop?.stop_name || '');
   const [address, setAddress] = useState(stop?.address || '');
   const [pickupTime, setPickupTime] = useState(stop?.pickup_time || '');
+  const [vanOnly, setVanOnly] = useState<boolean>(!!stop?.van_only_stop);
   // 座標:支援兩種填法 - 手動輸入 / 點地圖
   const [latStr, setLatStr] = useState<string>(
     stop?.latitude != null ? String(stop.latitude) : ''
@@ -496,6 +505,7 @@ function StopEditModal({ stop, pickedLatLng, onClose, onSave, saving }: ModalPro
       longitude: lng,
       address: address.trim() || null,
       pickup_time: pickupTime.trim() || null,
+      van_only_stop: vanOnly,
     });
   };
 
@@ -559,6 +569,18 @@ function StopEditModal({ stop, pickedLatLng, onClose, onSave, saving }: ModalPro
               placeholder="例:0710"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
           </div>
+
+          <label className="flex items-start gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={vanOnly}
+              onChange={(e) => setVanOnly(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-orange-600" />
+            <span>
+              <span className="block text-sm text-gray-100 font-semibold">🚐 這站只能廂型車進</span>
+              <span className="block text-xs text-gray-500 mt-0.5">巷子太小、中巴進不去等情況勾選;排車引擎會把這站當硬限制,不會排中巴</span>
+            </span>
+          </label>
         </div>
 
         <div className="px-5 py-4 border-t border-gray-800 flex gap-2">

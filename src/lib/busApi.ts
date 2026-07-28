@@ -298,3 +298,50 @@ export async function setStagingGeo(stagingId: number, lat: number, lng: number)
   });
   await handleResponse<{ ok: boolean }>(r);
 }
+
+// ============================================================
+// 需求 1:Google 表單歸零重匯
+// ============================================================
+
+export interface ApplyImportResult {
+  ok: boolean;
+  batch_id: string;
+  added: number;
+  updated: number;
+  failed: number;
+  nobus: number;
+  errors: string[];
+  unmatched: Array<{
+    row_num: number;
+    student_name: string;
+    pickup_stop: string;
+    dropoff_stop: string;
+    parent_phone: string;
+  }>;
+  summary: string;
+}
+
+// 套用:把某批次 staging 資料寫進正式 students 表
+export async function applyImportBatch(batchId: string): Promise<ApplyImportResult> {
+  const r = await fetch(`${API}/api/admin/student-import/${batchId}/apply`, {
+    method: 'POST',
+    headers: H(),
+  });
+  return await handleResponse<ApplyImportResult>(r);
+}
+
+export interface ResetSemesterResult {
+  ok: boolean;
+  deleted_students: number;
+  message: string;
+}
+
+// 歸零:清空 students + 相關紀錄(保留 buses/drivers/parents)。這是危險操作,呼叫前務必在畫面上做二次確認。
+export async function resetSemester(): Promise<ResetSemesterResult> {
+  const r = await fetch(`${API}/api/admin/students/reset-semester`, {
+    method: 'POST',
+    headers: H(),
+    body: JSON.stringify({ confirm: 'RESET' }),
+  });
+  return await handleResponse<ResetSemesterResult>(r);
+}

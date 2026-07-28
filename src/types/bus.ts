@@ -108,6 +108,7 @@ export interface BusStop {
   longitude: number | null;
   address: string | null;
   pickup_time: string | null;
+  van_only_stop: boolean;        // 這次新增:站牌等級車種限制(這個站巷子太小只能廂型車進,跟 buses.van_only 路線等級的限制分開)
 }
 
 // 後端 import-from-students 回傳格式

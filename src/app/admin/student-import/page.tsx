@@ -14,8 +14,9 @@ import * as XLSX from 'xlsx';
 import {
   uploadStudentImport, fetchImportBatches, fetchImportBatch,
   fetchGeocodeStatus, geocodeStep, setStagingGeo,
+  applyImportBatch, resetSemester,
   type StudentImportRow, type ImportQuality, type ImportBatch, type StagedRowServer,
-  type GeocodeProgress,
+  type GeocodeProgress, type ApplyImportResult,
 } from '@/lib/busApi';
 
 // ── Google 表單欄位 -> staging 欄位 的彈性對應 ──
@@ -109,6 +110,11 @@ export default function StudentImportPage() {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapInstRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
+  // 需求 1:套用到正式名單 + 歸零重匯
+  const [applying, setApplying] = useState(false);
+  const [applyResult, setApplyResult] = useState<ApplyImportResult | null>(null);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
 
   const loadBatches = async () => {
     try { setBatches(await fetchImportBatches()); } catch { /* 忽略 */ }
@@ -343,15 +349,53 @@ export default function StudentImportPage() {
     }
   };
 
+  // 需求 1:把這批次套用到正式 students 表(只處理還沒套用過的列,可重複點)
+  const handleApply = async () => {
+    if (!batchId) return;
+    if (!confirm(`確定要把批次 ${batchId} 套用到正式學生名單嗎?\n會新增/更新 students 資料。已套用過的列不會重複處理。`)) return;
+    setApplying(true); setErr(''); setApplyResult(null);
+    try {
+      const r = await applyImportBatch(batchId);
+      setApplyResult(r);
+      await loadBatch(batchId);
+      await loadBatches();
+    } catch (ex: any) {
+      setErr('套用失敗: ' + (ex?.message || String(ex)));
+    } finally {
+      setApplying(false);
+    }
+  };
+
   const showRows: any[] = serverRows.length > 0 ? serverRows : parsedRows;
   const filtered = filterFlag
     ? showRows.filter((r) => (r.quality_flags || computeLocalFlags(r)).includes(filterFlag))
     : showRows;
+  const appliedCount = serverRows.filter((r) => Number(r.applied) === 1).length;
+  const pendingApplyCount = serverRows.length > 0 ? serverRows.length - appliedCount : 0;
 
   return (
     <div style={S.page}>
       <h2 style={S.h2}>Google 表單匯入 <span style={S.badge}>3c-1</span></h2>
       <p style={S.sub}>上傳家長填寫的 Google 表單 (xlsx),系統解析後存入暫存區並標記資料品質問題。</p>
+
+      {/* 需求 1:歸零重匯入口 */}
+      <div style={{ ...S.card, background: '#fef2f2', border: '1px solid #fecaca' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#b91c1c' }}>新學期開始?</div>
+            <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 2 }}>
+              歸零重匯會清空目前所有學生資料(保留校車路線 / 司機 / 家長帳號),再上傳新學期的表單重新開始。
+            </div>
+          </div>
+          <button
+            style={{ ...S.btn, background: '#dc2626', color: '#fff', border: '1px solid #dc2626', whiteSpace: 'nowrap' }}
+            onClick={() => setShowResetModal(true)}
+          >
+            🗑️ 歸零重匯
+          </button>
+        </div>
+        {resetMsg && <div style={S.okBox}>✓ {resetMsg}</div>}
+      </div>
 
       {/* 上傳區 */}
       <div style={S.card}>
@@ -585,6 +629,74 @@ export default function StudentImportPage() {
         </>
       )}
 
+      {/* 需求 1:套用到正式學生名單 */}
+      {batchId && serverRows.length > 0 && (
+        <div style={S.card}>
+          <div style={S.cardTitle}>套用到正式學生名單</div>
+          <p style={S.hint}>
+            確認上面的資料(品質警告、座標)沒問題後,點下面按鈕把這批資料寫進正式 students 表。
+            已經套用過的列不會重複處理,可以放心重複點(例如補完座標後再套用一次剩下的)。
+          </p>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12, fontSize: 13 }}>
+            <span>共 <b>{serverRows.length}</b> 筆</span>
+            <span style={{ color: '#059669' }}>已套用 <b>{appliedCount}</b></span>
+            <span style={{ color: '#d97706' }}>待套用 <b>{pendingApplyCount}</b></span>
+          </div>
+          {pendingApplyCount > 0 ? (
+            <button style={{ ...S.btn, ...S.btnPrimary }} onClick={handleApply} disabled={applying}>
+              {applying ? '套用中…' : `套用剩下 ${pendingApplyCount} 筆`}
+            </button>
+          ) : (
+            <span style={S.okText}>✓ 這批已全部套用完成</span>
+          )}
+
+          {applyResult && (
+            <div style={{ marginTop: 14 }}>
+              <div style={S.okBox}>{applyResult.summary}</div>
+              {applyResult.errors.length > 0 && (
+                <div style={{ ...S.err, marginTop: 8 }}>
+                  {applyResult.errors.length} 筆處理失敗:
+                  <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                    {applyResult.errors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+              {applyResult.unmatched.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#d97706', marginBottom: 6 }}>
+                    {applyResult.unmatched.length} 位沒對到站牌,已建立學生但尚未指派校車(需要到「校車管理」頁手動指派):
+                  </div>
+                  <div style={{ maxHeight: 260, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                    <table style={S.table}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>列</th>
+                          <th style={S.th}>姓名</th>
+                          <th style={S.th}>上學站</th>
+                          <th style={S.th}>放學站</th>
+                          <th style={S.th}>家長電話</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {applyResult.unmatched.map((u, i) => (
+                          <tr key={i} style={{ background: '#fffbeb' }}>
+                            <td style={S.td}>{u.row_num}</td>
+                            <td style={S.td}>{u.student_name}</td>
+                            <td style={S.td}>{u.pickup_stop}</td>
+                            <td style={S.td}>{u.dropoff_stop}</td>
+                            <td style={S.td}>{u.parent_phone}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 既有批次 */}
       {batches.length > 0 && (
         <div style={S.card}>
@@ -659,6 +771,93 @@ export default function StudentImportPage() {
           )}
         </div>
       )}
+
+      {/* 需求 1:歸零重匯確認彈窗 */}
+      {showResetModal && (
+        <ResetSemesterModal
+          onClose={() => setShowResetModal(false)}
+          onDone={(msg) => {
+            setResetMsg(msg);
+            setBatchId('');
+            setServerRows([]);
+            setParsedRows([]);
+            setQuality(null);
+            setGeo(null);
+            setApplyResult(null);
+            loadBatches();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// 需求 1:歸零重匯確認彈窗 — 要求打字輸入 RESET 才能按下確認
+// (跟後端 body 需要 { confirm: "RESET" } 呼應,雙重防呆)
+// ============================================================
+function ResetSemesterModal({ onClose, onDone }: { onClose: () => void; onDone: (msg: string) => void }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ok = typed.trim() === 'RESET';
+
+  const doReset = async () => {
+    if (!ok || busy) return;
+    setBusy(true); setErr('');
+    try {
+      const r = await resetSemester();
+      onDone(r.message);
+      onClose();
+    } catch (ex: any) {
+      setErr('歸零失敗: ' + (ex?.message || String(ex)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)',
+      zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }}>
+      <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 440, maxWidth: '100%' }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: '#b91c1c', marginBottom: 10 }}>
+          ⚠️ 歸零重匯 — 這個動作無法復原
+        </div>
+        <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, margin: 0 }}>
+          會刪除<b>目前所有學生資料</b>,以及對應的刷卡紀錄與修改紀錄。<br />
+          <b style={{ color: '#059669' }}>會保留</b>:校車路線(buses)、司機帳號(drivers)、家長帳號(parents)。<br />
+          請先確認新學期的 Google 表單已經準備好,再執行這個動作。
+        </p>
+        <p style={{ fontSize: 13, marginTop: 14, marginBottom: 6 }}>
+          請輸入 <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>RESET</code> 以確認:
+        </p>
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="輸入 RESET"
+          autoFocus
+          style={{ width: '100%', padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }}
+        />
+        {err && <div style={S.err}>{err}</div>}
+        <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+          <button style={{ ...S.btn, flex: 1 }} onClick={onClose} disabled={busy}>取消</button>
+          <button
+            style={{
+              ...S.btn, flex: 1,
+              background: ok ? '#dc2626' : '#f1f5f9',
+              color: ok ? '#fff' : '#94a3b8',
+              border: `1px solid ${ok ? '#dc2626' : '#cbd5e1'}`,
+              cursor: ok ? 'pointer' : 'not-allowed',
+            }}
+            onClick={doReset}
+            disabled={!ok || busy}
+          >
+            {busy ? '刪除中…' : '確認歸零'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
