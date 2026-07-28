@@ -10,6 +10,7 @@
 // 依賴: npm i xlsx
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import {
   uploadStudentImport, fetchImportBatches, fetchImportBatch,
@@ -85,6 +86,7 @@ function computeLocalFlags(r: any): string {
 }
 
 export default function StudentImportPage() {
+  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -375,6 +377,12 @@ export default function StudentImportPage() {
 
   return (
     <div style={S.page}>
+      <button
+        onClick={() => router.push('/admin')}
+        style={{ ...S.btn, marginBottom: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+      >
+        ‹ 返回
+      </button>
       <h2 style={S.h2}>Google 表單匯入 <span style={S.badge}>3c-1</span></h2>
       <p style={S.sub}>上傳家長填寫的 Google 表單 (xlsx),系統解析後存入暫存區並標記資料品質問題。</p>
 
