@@ -10,7 +10,6 @@
 // 依賴: npm i xlsx
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import {
   uploadStudentImport, fetchImportBatches, fetchImportBatch,
@@ -86,7 +85,6 @@ function computeLocalFlags(r: any): string {
 }
 
 export default function StudentImportPage() {
-  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [parsing, setParsing] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -377,12 +375,6 @@ export default function StudentImportPage() {
 
   return (
     <div style={S.page}>
-      <button
-        onClick={() => router.push('/admin')}
-        style={{ ...S.btn, marginBottom: 14, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-      >
-        ‹ 返回
-      </button>
       <h2 style={S.h2}>Google 表單匯入 <span style={S.badge}>3c-1</span></h2>
       <p style={S.sub}>上傳家長填寫的 Google 表單 (xlsx),系統解析後存入暫存區並標記資料品質問題。</p>
 
@@ -392,7 +384,7 @@ export default function StudentImportPage() {
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#b91c1c' }}>新學期開始?</div>
             <div style={{ fontSize: 12, color: '#7f1d1d', marginTop: 2 }}>
-              歸零重匯會清空目前所有學生資料(保留校車路線 / 司機 / 家長帳號),再上傳新學期的表單重新開始。
+              歸零重匯會清空目前所有學生資料及家長帳號(保留校車路線 / 司機),再上傳新學期的表單重新開始。
             </div>
           </div>
           <button
@@ -834,8 +826,8 @@ function ResetSemesterModal({ onClose, onDone }: { onClose: () => void; onDone: 
           ⚠️ 歸零重匯 — 這個動作無法復原
         </div>
         <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, margin: 0 }}>
-          會刪除<b>目前所有學生資料</b>,以及對應的刷卡紀錄與修改紀錄。<br />
-          <b style={{ color: '#059669' }}>會保留</b>:校車路線(buses)、司機帳號(drivers)、家長帳號(parents)。<br />
+          會刪除<b>目前所有學生資料與家長帳號</b>,以及對應的刷卡紀錄與修改紀錄。<br />
+          <b style={{ color: '#059669' }}>會保留</b>:校車路線(buses)、司機帳號(drivers)。<br />
           請先確認新學期的 Google 表單已經準備好,再執行這個動作。
         </p>
         <p style={{ fontSize: 13, marginTop: 14, marginBottom: 6 }}>
