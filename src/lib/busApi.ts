@@ -184,6 +184,8 @@ export interface StudentImportRow {
   thu_time: string;
   fri_time: string;
   note: string;
+  geo_lat?: string;
+  geo_lng?: string;
 }
 
 export interface ImportQuality {

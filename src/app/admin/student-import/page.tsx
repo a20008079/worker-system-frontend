@@ -42,6 +42,8 @@ const HEADER_MAP: { key: keyof StudentImportRow; match: string[] }[] = [
   { key: 'thu_time',      match: ['星期四', '放學四', '週四'] },
   { key: 'fri_time',      match: ['星期五', '放學五', '週五'] },
   { key: 'note',          match: ['備註', '備考', 'note'] },
+  { key: 'geo_lat',       match: ['緯度', 'latitude', 'lat'] },
+  { key: 'geo_lng',       match: ['經度', 'longitude', 'lng'] },
 ];
 
 const norm = (s: any) => String(s).replace(/\s/g, '');
@@ -52,6 +54,7 @@ function mapRow(raw: Record<string, any>, headers: string[], rowNum: number): St
     student_name: '', parent_name: '', parent_phone: '', home_address: '',
     ride_period: '', pickup_stop: '', dropoff_stop: '', mon_time: '',
     tue_time: '', wed_time: '', thu_time: '', fri_time: '', note: '',
+    geo_lat: '', geo_lng: '',
   };
   for (const { key, match } of HEADER_MAP) {
     const h = headers.find((hd) => match.some((m) => norm(hd).includes(norm(m))));
