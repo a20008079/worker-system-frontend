@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import {
   fetchBuses, fetchStops, createStop, updateStop, deleteStop,
   reorderStops, importStopsFromStudents,
+  fetchStopGeocodeStatus, stopGeocodeStep,
 } from '@/lib/busApi';
 import type { BusInfo, BusStop } from '@/types/bus';
 
@@ -25,6 +26,11 @@ export default function StopsPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [editingStop, setEditingStop] = useState<BusStop | null>(null);
   const [addingNew, setAddingNew] = useState(false);
+
+  // 全站牌自動查經緯度(缺座標的站牌一次補齊)
+  const [stopGeoStatus, setStopGeoStatus] = useState<{ total: number; geocoded: number; remaining: number } | null>(null);
+  const [stopGeoRunning, setStopGeoRunning] = useState(false);
+  const [stopGeoMsg, setStopGeoMsg] = useState<string | null>(null);
 
   // Leaflet refs
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -209,6 +215,46 @@ export default function StopsPage() {
     } finally { setBusy(false); }
   };
 
+  // 站牌自動查經緯度:優先用站牌的 address,沒填就用 stop_name 本身去查
+  // (Nominatim 限速 1 req/s,後端每筆間隔 ~1.1 秒,所以用小批次反覆呼叫)
+  const handleGeocodeAllStops = async () => {
+    setStopGeoRunning(true); setStopGeoMsg(null);
+    try {
+      let stuckCount = 0;
+      for (let i = 0; i < 200; i++) { // 安全上限,避免無窮迴圈
+        const r = await stopGeocodeStep(10);
+        setStopGeoStatus({ total: r.total, geocoded: r.geocoded, remaining: r.remaining });
+        if (r.remaining <= 0) {
+          setStopGeoMsg(`✓ 完成,共 ${r.geocoded} 個站牌都有座標了`);
+          break;
+        }
+        if (r.step_ok === 0) {
+          stuckCount++;
+          if (stuckCount >= 2) {
+            setStopGeoMsg(`⚠️ 還有 ${r.remaining} 個站牌查不到座標(地址/站名可能不夠明確),請到站牌管理裡手動在地圖上點選位置`);
+            break;
+          }
+        } else {
+          stuckCount = 0;
+        }
+      }
+      if (selectedBusId != null) {
+        const data = await fetchStops(selectedBusId);
+        setStops(data);
+      }
+    } catch (e) {
+      setStopGeoMsg(`✗ ${(e as Error).message}`);
+    } finally {
+      setStopGeoRunning(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStopGeocodeStatus()
+      .then((s) => setStopGeoStatus(s))
+      .catch(() => { /* 忽略,頁面仍可正常使用 */ });
+  }, []);
+
   const handleDelete = async (id: number) => {
     if (!confirm('確定刪除此站牌?')) return;
     setBusy(true); setMsg(null);
@@ -302,6 +348,26 @@ export default function StopsPage() {
           ))}
         </select>
       </div>
+
+      {/* 全站牌自動查經緯度 */}
+      {stopGeoStatus && stopGeoStatus.remaining > 0 && (
+        <div className="bg-amber-950/40 border-b border-amber-800/40 px-4 py-2 flex items-center gap-3 flex-wrap flex-shrink-0">
+          <div className="text-amber-300 text-xs flex-1 min-w-[200px]">
+            ⚠️ 還有 {stopGeoStatus.remaining} / {stopGeoStatus.total} 個站牌沒有座標,自動排車找不到這些站牌
+          </div>
+          <button
+            onClick={handleGeocodeAllStops}
+            disabled={stopGeoRunning}
+            className="bg-amber-700 hover:bg-amber-600 disabled:bg-gray-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg active:scale-95">
+            {stopGeoRunning ? '查詢中…' : '🌐 自動查詢缺座標的站牌'}
+          </button>
+        </div>
+      )}
+      {stopGeoMsg && (
+        <div className="bg-gray-900 border-b border-gray-800 px-4 py-2 text-xs text-gray-300 flex-shrink-0">
+          {stopGeoMsg}
+        </div>
+      )}
 
       {/* 主內容:左欄列表 + 右欄地圖 */}
       <div className="flex flex-1 min-h-0">
