@@ -184,8 +184,8 @@ export interface StudentImportRow {
   thu_time: string;
   fri_time: string;
   note: string;
-  geo_lat?: string;
-  geo_lng?: string;
+  geo_lat?: string | number | null;
+  geo_lng?: string | number | null;
 }
 
 export interface ImportQuality {
@@ -289,6 +289,30 @@ export async function geocodeStep(batchId: string, stepSize = 10): Promise<Geoco
     body: JSON.stringify({ step_size: stepSize }),
   });
   return await handleResponse<GeocodeStepResult>(r);
+}
+
+// 站牌自動查經緯度(用站牌地址或名稱去查,跟學生地址共用同一套 Nominatim 邏輯)
+export interface StopGeocodeProgress {
+  total: number;
+  geocoded: number;
+  remaining: number;
+}
+export interface StopGeocodeStepResult extends StopGeocodeProgress {
+  ok: boolean;
+  step_ok: number;
+  step_fail: number;
+}
+export async function fetchStopGeocodeStatus(): Promise<StopGeocodeProgress> {
+  const r = await fetch(`${API}/api/admin/bus-stops/geocode-status`, { headers: H() });
+  return await handleResponse<StopGeocodeProgress>(r);
+}
+export async function stopGeocodeStep(stepSize = 10): Promise<StopGeocodeStepResult> {
+  const r = await fetch(`${API}/api/admin/bus-stops/geocode-step`, {
+    method: 'POST',
+    headers: H(),
+    body: JSON.stringify({ step_size: stepSize }),
+  });
+  return await handleResponse<StopGeocodeStepResult>(r);
 }
 
 // 老師手動補座標
