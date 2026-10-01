@@ -18,6 +18,7 @@ export default function ParentMapView() {
   const [cur, setCur] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showPath, setShowPath] = useState(false);
+  const [pathCheckpoints, setPathCheckpoints] = useState<{ lat: number; lng: number; time: string }[]>([]);
   const [progress, setProgress] = useState(0);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const elapsed = useRef(0);
@@ -209,7 +210,9 @@ export default function ParentMapView() {
     const item = data[cur];
     if (showPath) {
       if (pathRef.current) { mapRef.current.removeLayer(pathRef.current); pathRef.current = null; }
-      setShowPath(false); return;
+      setShowPath(false);
+      setPathCheckpoints([]);
+      return;
     }
     try {
       const r = await fetch(`${API}/api/admin/buses/${item.bus.id}/history`, { headers: H() });
@@ -220,12 +223,53 @@ export default function ParentMapView() {
       const latlngs = pts.map((p: any) => [p.latitude, p.longitude] as [number, number]);
       const lg = L.layerGroup();
       L.polyline(latlngs, { color: '#3b82f6', weight: 5, opacity: 0.7 }).addTo(lg);
-      if (latlngs.length) L.circleMarker(latlngs[0], { radius: 6, fillColor: '#10b981', color: '#fff', weight: 2, fillOpacity: 1 }).bindTooltip('出發點').addTo(lg);
+
+      // 時間軸:每隔至少 5 分鐘取一個點標時間,加上固定頭尾,避免密密麻麻
+      const fmtTime = (iso: string) =>
+        new Date(new Date(iso).getTime() + 8 * 60 * 60 * 1000)
+          .toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+      const MIN_GAP_MS = 5 * 60 * 1000;
+      const checkpoints: { lat: number; lng: number; time: string }[] = [];
+      let lastTs = -Infinity;
+      pts.forEach((p: any, i: number) => {
+        const ts = new Date(p.created_at).getTime();
+        const isLast = i === pts.length - 1;
+        if (ts - lastTs >= MIN_GAP_MS || i === 0 || isLast) {
+          checkpoints.push({ lat: p.latitude, lng: p.longitude, time: fmtTime(p.created_at) });
+          lastTs = ts;
+        }
+      });
+
+      checkpoints.forEach((cp, i) => {
+        const isFirst = i === 0;
+        const isLast = i === checkpoints.length - 1;
+        const marker = L.circleMarker([cp.lat, cp.lng], {
+          radius: isFirst || isLast ? 7 : 5,
+          fillColor: isFirst ? '#10b981' : isLast ? '#ef4444' : '#3b82f6',
+          color: '#fff',
+          weight: 2,
+          fillOpacity: 1,
+        }).bindTooltip(`${isFirst ? '出發 ' : isLast ? '目前 ' : ''}${cp.time}`, { permanent: false });
+        marker.addTo(lg);
+      });
+
       lg.addTo(mapRef.current);
       pathRef.current = lg;
+      setPathCheckpoints(checkpoints);
       try { mapRef.current.fitBounds(latlngs, { padding: [50, 50] }); } catch {}
       setShowPath(true);
     } catch {}
+  };
+
+  // 點時間軸上的時間標籤,地圖飛過去該點並彈出時間
+  const flyToCheckpoint = async (cp: { lat: number; lng: number; time: string }) => {
+    if (!mapRef.current) return;
+    mapRef.current.flyTo([cp.lat, cp.lng], 17, { duration: 0.6 });
+    const L = (await import('leaflet')).default;
+    L.popup({ offset: [0, -4] })
+      .setLatLng([cp.lat, cp.lng])
+      .setContent(`🕐 ${cp.time}`)
+      .openOn(mapRef.current);
   };
 
   if (loading) return (
@@ -339,6 +383,28 @@ export default function ParentMapView() {
               className={`w-full py-2 rounded-xl text-sm font-semibold mb-3 transition-all border ${showPath ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-500'}`}>
               {showPath ? '🗑️ 隱藏行駛路徑' : '📍 顯示今日行駛路徑'}
             </button>
+          )}
+
+          {showPath && pathCheckpoints.length > 0 && (
+            <div className="mb-3">
+              <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1.5">時間軸</div>
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                {pathCheckpoints.map((cp, i) => {
+                  const isFirst = i === 0;
+                  const isLast = i === pathCheckpoints.length - 1;
+                  return (
+                    <button key={i} onClick={() => flyToCheckpoint(cp)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                        isFirst ? 'bg-green-50 border-green-300 text-green-700'
+                        : isLast ? 'bg-red-50 border-red-300 text-red-700'
+                        : 'bg-blue-50 border-blue-200 text-blue-700'
+                      }`}>
+                      {isFirst ? '🟢 ' : isLast ? '🔴 ' : '🔵 '}{cp.time}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           <div className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-2">我的孩子</div>
