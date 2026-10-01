@@ -311,9 +311,16 @@ export default function ParentMapView() {
                 <div style={{ fontSize: 19, fontWeight: 900 }}>行駛中 🟢</div>
               </div>
               <div style={{ fontSize: 11, opacity: .8, textAlign: 'right' }}>
-                <div>{bus.bus_name}</div>
+                <div>{bus?.bus_name}</div>
                 <div>{lastSeen ? `更新 ${lastSeen}` : '等待定位'}</div>
               </div>
+            </div>
+          ) : !bus ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-3">
+              <div className="font-black text-amber-800 text-base mb-1 flex items-center gap-2">
+                🚍 尚未分配校車
+              </div>
+              <div className="text-amber-700 text-sm">學校正在安排路線，稍後會指派校車，請留意後續通知。</div>
             </div>
           ) : (
             <div className="bg-gray-50 border border-gray-200 rounded-2xl p-3 mb-3">
