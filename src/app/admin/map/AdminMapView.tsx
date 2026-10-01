@@ -30,6 +30,7 @@ export default function AdminMapView() {
   const [selBus, setSelBus] = useState<any>(null);
   const [routeFilter, setRouteFilter] = useState('all');
   const [showPath, setShowPath] = useState(false);
+  const [pathCheckpoints, setPathCheckpoints] = useState<{ lat: number; lng: number; time: string }[]>([]);
   const [updateTime, setUpdateTime] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   // 桌機側邊欄收合狀態
@@ -159,26 +160,52 @@ export default function AdminMapView() {
   }
 
   async function togglePath() {
-    if (showPath) { clearPath(); setShowPath(false); return; }
+    if (showPath) { clearPath(); setShowPath(false); setPathCheckpoints([]); return; }
     if (!selBus) return;
     try {
       const r = await fetch(`${API}/api/admin/buses/${selBus.id}/history`, { headers: H() });
       if (!r.ok) return;
       const pts = await r.json();
       if (!pts.length) return;
-      drawPath(pts.map((p: any) => [p.latitude, p.longitude] as [number, number]), selBus.route_name);
+      drawPath(pts, selBus.route_name);
       setShowPath(true);
     } catch {}
   }
 
-  function drawPath(latlngs: [number, number][], routeName: string) {
+  function drawPath(pts: { latitude: number; longitude: number; created_at: string }[], routeName: string) {
     if (!mapRef.current) return;
     clearPath();
     const color = getColor(routeName || '');
     const lg = L.layerGroup();
+    const latlngs = pts.map((p) => [p.latitude, p.longitude] as [number, number]);
     L.polyline(latlngs, { color, weight: 4, opacity: 0.8 }).addTo(lg);
-    if (latlngs.length) L.circleMarker(latlngs[0], { radius: 7, fillColor: '#10b981', color: '#fff', weight: 2, fillOpacity: 1 }).bindTooltip('起點').addTo(lg);
-    if (latlngs.length > 1) L.circleMarker(latlngs[latlngs.length - 1], { radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1 }).bindTooltip('目前').addTo(lg);
+
+    // 時間軸:每隔至少 5 分鐘取一個點標時間,固定含頭尾,避免密密麻麻
+    const fmtTime = (iso: string) =>
+      new Date(new Date(iso).getTime() + 8 * 60 * 60 * 1000)
+        .toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    const MIN_GAP_MS = 5 * 60 * 1000;
+    const checkpoints: { lat: number; lng: number; time: string }[] = [];
+    let lastTs = -Infinity;
+    pts.forEach((p, i) => {
+      const ts = new Date(p.created_at).getTime();
+      const isLast = i === pts.length - 1;
+      if (ts - lastTs >= MIN_GAP_MS || i === 0 || isLast) {
+        checkpoints.push({ lat: p.latitude, lng: p.longitude, time: fmtTime(p.created_at) });
+        lastTs = ts;
+      }
+    });
+    checkpoints.forEach((cp, i) => {
+      const isFirst = i === 0;
+      const isLast = i === checkpoints.length - 1;
+      L.circleMarker([cp.lat, cp.lng], {
+        radius: isFirst || isLast ? 7 : 5,
+        fillColor: isFirst ? '#10b981' : isLast ? color : '#3b82f6',
+        color: '#fff', weight: 2, fillOpacity: 1,
+      }).bindTooltip(`${isFirst ? '起點 ' : isLast ? '目前 ' : ''}${cp.time}`).addTo(lg);
+    });
+    setPathCheckpoints(checkpoints);
+
     lg.addTo(mapRef.current);
     pathLayerRef.current = lg;
     try { mapRef.current.fitBounds(latlngs, { padding: [60, 60] }); } catch {}
@@ -186,6 +213,12 @@ export default function AdminMapView() {
 
   function clearPath() {
     if (pathLayerRef.current && mapRef.current) { mapRef.current.removeLayer(pathLayerRef.current); pathLayerRef.current = null; }
+  }
+
+  function flyToCheckpoint(cp: { lat: number; lng: number; time: string }) {
+    if (!mapRef.current) return;
+    mapRef.current.flyTo([cp.lat, cp.lng], 17, { duration: 0.6 });
+    L.popup({ offset: [0, -4] }).setLatLng([cp.lat, cp.lng]).setContent(`🕐 ${cp.time}`).openOn(mapRef.current);
   }
 
   useEffect(() => {
@@ -319,7 +352,7 @@ export default function AdminMapView() {
           <div style={{ position: 'absolute', bottom: 16, right: 16, background: '#FFFFFF', border: '1px solid #E8E8E8', borderRadius: 12, padding: 14, width: 260, zIndex: 999 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>{selBus.bus_name}</span>
-              <span style={{ cursor: 'pointer', color: '#888888', fontSize: 18 }} onClick={() => { setSelBus(null); clearPath(); clearStops(); setShowPath(false); }}>×</span>
+              <span style={{ cursor: 'pointer', color: '#888888', fontSize: 18 }} onClick={() => { setSelBus(null); clearPath(); clearStops(); setShowPath(false); setPathCheckpoints([]); }}>×</span>
             </div>
             {[
               { label: '路線', value: selBus.route_name || '-' },
@@ -335,6 +368,26 @@ export default function AdminMapView() {
             <button onClick={togglePath} style={{ width: '100%', marginTop: 10, background: showPath ? '#ef4444' : '#FF6B00', border: 'none', color: '#fff', padding: 7, borderRadius: 7, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' }}>
               {showPath ? '🗑️ 清除路徑' : '📍 今日行駛路徑'}
             </button>
+            {showPath && pathCheckpoints.length > 0 && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+                {pathCheckpoints.map((cp, i) => {
+                  const isFirst = i === 0;
+                  const isLast = i === pathCheckpoints.length - 1;
+                  return (
+                    <button key={i} onClick={() => flyToCheckpoint(cp)}
+                      style={{
+                        flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 9px', borderRadius: 999,
+                        border: `1px solid ${isFirst ? '#10b98166' : isLast ? '#FF6B0066' : '#3b82f666'}`,
+                        background: isFirst ? '#ecfdf5' : isLast ? '#fff4ec' : '#eff6ff',
+                        color: isFirst ? '#059669' : isLast ? '#FF6B00' : '#2563eb',
+                        cursor: 'pointer', fontFamily: 'inherit',
+                      }}>
+                      {isFirst ? '🟢 ' : isLast ? '🟠 ' : '🔵 '}{cp.time}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
