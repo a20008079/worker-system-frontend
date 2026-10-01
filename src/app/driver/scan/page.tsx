@@ -153,6 +153,31 @@ function ScanPageInner() {
     } finally { setLoading(false); }
   };
 
+  const [manualBusyId, setManualBusyId] = useState<number | null>(null);
+
+  // 名單頁直接點學生「標記上車/下車」,不用掃碼刷卡
+  const handleManualMark = async (studentId: number, action: 'board' | 'alight') => {
+    if (manualBusyId) return;
+    setManualBusyId(studentId);
+    try {
+      const endpoint = action === 'board' ? '/api/driver/board-manual' : '/api/driver/alight-manual';
+      const r = await fetch(`${API}${endpoint}`, {
+        method: 'POST', headers: headers(),
+        body: JSON.stringify({ student_id: studentId }),
+      });
+      const d = await r.json();
+      if (d.status === 'ok') {
+        fetchStudents();
+      } else {
+        alert(d.message || d.error || '操作失敗');
+      }
+    } catch {
+      alert('連線失敗，請重試');
+    } finally {
+      setManualBusyId(null);
+    }
+  };
+
   const restartScan = () => {
     if (!streamRef.current) return;
     import('jsqr').then(({ default: jsQR }) => {
@@ -355,7 +380,12 @@ function ScanPageInner() {
                         <div className="text-gray-500 text-xs">{s.school_class}</div>
                         {s.pickup_location && <div className="text-gray-600 text-xs">↑ {s.pickup_location}</div>}
                       </div>
-                      <div className="text-amber-400 text-xs font-medium">未上車</div>
+                      <button
+                        onClick={() => handleManualMark(s.id, 'board')}
+                        disabled={manualBusyId === s.id}
+                        className="px-3 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-semibold active:scale-95 whitespace-nowrap">
+                        {manualBusyId === s.id ? '...' : '✅ 標記上車'}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -375,7 +405,7 @@ function ScanPageInner() {
                         <div className="text-gray-500 text-xs">{s.school_class}</div>
                         {s.today_dropoff && <div className="text-purple-400/70 text-xs">↓ {s.today_dropoff}</div>}
                       </div>
-                      <div className="text-right">
+                      <div className="text-right mr-1">
                         {s.today_session && (
                           <div className="text-purple-400 text-xs font-semibold">{sessionLabel[s.today_session] || s.today_session}</div>
                         )}
@@ -383,6 +413,12 @@ function ScanPageInner() {
                           {s.boarded_at ? new Date(s.boarded_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) : '已上車'}
                         </div>
                       </div>
+                      <button
+                        onClick={() => handleManualMark(s.id, 'alight')}
+                        disabled={manualBusyId === s.id}
+                        className="px-3 py-2 rounded-xl bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white text-xs font-semibold active:scale-95 whitespace-nowrap">
+                        {manualBusyId === s.id ? '...' : '🚪 標記下車'}
+                      </button>
                     </div>
                   ))}
                 </div>
