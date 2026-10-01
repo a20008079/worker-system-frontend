@@ -111,8 +111,9 @@ export default function StopsPage() {
         attributionControl: false,
       });
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
+        subdomains: 'abc',
       }).addTo(map);
 
       // 點地圖事件:在「選位置模式」時記錄座標

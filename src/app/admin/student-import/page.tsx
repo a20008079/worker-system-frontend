@@ -149,7 +149,9 @@ export default function StudentImportPage() {
       const startLat = manualEdit.geo_lat ?? 24.9627;
       const startLng = manualEdit.geo_lng ?? 121.2435;
       const map = L.map(mapDivRef.current).setView([startLat, startLng], 15);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        subdomains: 'abc',
         attribution: '&copy; OpenStreetMap',
       }).addTo(map);
       // 已有座標就先放個 marker
